@@ -285,6 +285,16 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     treeWidget_timers->setContextMenuPolicy(Qt::ActionsContextMenu);
     connect(treeWidget_timers, &QTreeWidget::itemClicked, this, &dlgTriggerEditor::slot_item_selected_save);
 
+    treeWidget_gui->hide();
+    treeWidget_gui->setHost(mpHost);
+    treeWidget_gui->setIsGuiTree();
+    treeWidget_gui->setColumnCount(2);
+    treeWidget_gui->hideColumn(1);
+    treeWidget_gui->header()->hide();
+    treeWidget_gui->setRootIsDecorated(false);
+    treeWidget_gui->setContextMenuPolicy(Qt::ActionsContextMenu);
+    connect(treeWidget_gui, &QTreeWidget::itemClicked, this, &dlgTriggerEditor::slot_item_selected_save);
+
     treeWidget_variables->hide();
     treeWidget_variables->setHost(mpHost);
     treeWidget_variables->setIsVarTree();
@@ -5956,6 +5966,25 @@ void dlgTriggerEditor::fillout_form()
         }
     }
     mpKeyBaseItem->setExpanded(true);
+}
+
+void dlgTriggerEditor::repopulateGui()
+{
+    treeWidget_variables->setUpdatesEnabled(false);
+    mpVarBaseItem = new QTreeWidgetItem(QStringList(tr("Variables")));
+    mpVarBaseItem->setTextAlignment(0, Qt::AlignLeft | Qt::AlignVCenter);
+    mpVarBaseItem->setBackground(0, QColor(255, 254, 215, 255));
+    mpVarBaseItem->setIcon(0, QPixmap(QStringLiteral(":/icons/variables.png")));
+    treeWidget_variables->clear();
+    mpCurrentVarItem = nullptr;
+    treeWidget_variables->insertTopLevelItem(0, mpVarBaseItem);
+    mpVarBaseItem->setExpanded(true);
+    LuaInterface* lI = mpHost->getLuaInterface();
+    lI->getVars(false);
+    VarUnit* vu = lI->getVarUnit();
+    vu->buildVarTree(mpVarBaseItem, vu->getBase(), showHiddenVars);
+    mpVarBaseItem->setExpanded(true);
+    treeWidget_variables->setUpdatesEnabled(true);
 }
 
 void dlgTriggerEditor::repopulateVars()

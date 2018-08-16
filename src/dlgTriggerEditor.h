@@ -37,11 +37,13 @@
 #include "TTreeWidget.h"
 #include "TTrigger.h"
 #include "TVar.h"
+#include "TGui.h"
 #include "dlgSourceEditorArea.h"
 #include "dlgSystemMessageArea.h"
 #include "dlgTimersMainArea.h"
 #include "dlgTriggersMainArea.h"
 #include "dlgVarsMainArea.h"
+#include "dlgGuiMainArea.h"
 
 #include "pre_guard.h"
 #include <QDialog>
@@ -85,6 +87,7 @@ class TAction;
 class TKey;
 class TConsole;
 class dlgVarsMainArea;
+class dlgGuiMainArea;
 
 
 class dlgTriggerEditor : public QMainWindow, private Ui::trigger_editor
@@ -180,6 +183,10 @@ public:
     void recurseVariablesUp(QTreeWidgetItem* const, QList<QTreeWidgetItem*>&);
     void recurseVariablesDown(QTreeWidgetItem* const, QList<QTreeWidgetItem*>&);
     void show_vars();
+    void addGui(bool);
+    void saveGui();
+    void repopulateGuis();
+    void show_guis();
     void setThemeAndOtherSettings(const QString&);
 
     enum class EditorViewType {
@@ -189,7 +196,8 @@ public:
         cmScriptView = 0x04,
         cmActionView = 0x05,
         cmKeysView = 0x06,
-        cmVarsView = 0x07
+        cmVarsView = 0x07,
+        cmGuiView = 0x08,
     };
 
 public slots:
@@ -201,6 +209,7 @@ public slots:
     void slot_var_selected(QTreeWidgetItem*);
     void slot_var_changed(QTreeWidgetItem*);
     void slot_show_vars();
+    void slot_show_gui();
     void slot_viewErrorsAction();
     void slot_set_pattern_type_color(int);
     void slot_soundTrigger();

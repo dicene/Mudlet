@@ -520,7 +520,8 @@ SOURCES += \
     VarUnit.cpp \
     XMLexport.cpp \
     XMLimport.cpp \
-    wcwidth.cpp
+    wcwidth.cpp \
+    dlgVarsMainArea_copy.cpp
 
 
 HEADERS += \
@@ -598,7 +599,9 @@ HEADERS += \
     VarUnit.h \
     XMLexport.h \
     XMLimport.h \
-    wcwidth.h
+    wcwidth.h \
+    dlgGuiMainArea.h \
+    TGui.h
 
 
 # This is for compiled UI files, not those used at runtime through the resource file.
