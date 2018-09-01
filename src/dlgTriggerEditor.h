@@ -292,6 +292,8 @@ public:
     TConsole* mpErrorConsole;
     bool mNeedUpdateData;
 
+    edbee::TextEditorWidget *   mpSourceEditorEdbee;
+
 private:
     void saveOpenChanges();
     void saveTrigger();
@@ -443,7 +445,6 @@ private:
     bool mChangingVar;
 
     QTextDocument *             mpSourceEditorDocument;
-    edbee::TextEditorWidget *   mpSourceEditorEdbee;
     edbee::TextDocument *       mpSourceEditorEdbeeDocument;
     edbee::TextSearcher *       mpSourceEditorSearcher;
 

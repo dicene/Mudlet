@@ -501,7 +501,11 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
                                   ? edbee::TextEditorConfig::ShowWhitespaces
                                   : edbee::TextEditorConfig::HideWhitespaces);
     config->setUseLineSeparator(mudlet::self()->mEditorTextOptions & QTextOption::ShowLineAndParagraphSeparators);
+    qDebug() << "Setting setAutocompleteAutoShow to" << mpHost->mAutocompleteAutoShow;
+    config->setAutocompleteAutoShow(mpHost->mAutocompleteAutoShow);
     config->endChanges();
+
+    qDebug() << "Config setAutocompleteAutoShow is now" << config->autocompleteAutoShow();
 
     connect(comboBox_searchTerms, qOverload<const QString&>(&QComboBox::activated), this, &dlgTriggerEditor::slot_searchMudletItems);
     connect(treeWidget_triggers, &QTreeWidget::itemClicked, this, &dlgTriggerEditor::slot_trigger_selected);
@@ -8101,6 +8105,7 @@ void dlgTriggerEditor::setThemeAndOtherSettings(const QString& theme)
                                            ? edbee::TextEditorConfig::ShowWhitespaces
                                            : edbee::TextEditorConfig::HideWhitespaces);
         localConfig->setUseLineSeparator(mudlet::self()->mEditorTextOptions & QTextOption::ShowLineAndParagraphSeparators);
+        localConfig->setAutocompleteAutoShow(mpHost->mAutocompleteAutoShow);
         localConfig->endChanges();
 }
 
