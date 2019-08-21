@@ -31,8 +31,10 @@
 
 #include "pre_guard.h"
 #include <QtUiTools>
-#include "post_guard.h"
+#include <QSettings>
 #include <sstream>
+#include <../3rdparty/qtkeychain/keychain.h>
+#include "post_guard.h"
 
 dlgConnectionProfiles::dlgConnectionProfiles(QWidget * parent)
 : QDialog( parent )
@@ -45,7 +47,7 @@ dlgConnectionProfiles::dlgConnectionProfiles(QWidget * parent)
 , validUrl()
 , validPort()
 , mDefaultGames({"3Kingdoms", "3Scapes", "Aardwolf", "Achaea", "Aetolia",
-                 "Avalon.de", "BatMUD", "Clessidra", "Imperian", "Luminari",
+                 "Avalon.de", "BatMUD", "Clessidra", "Fierymud", "Imperian", "Luminari",
                  "Lusternia", "Materia Magica", "Midnight Sun 2", "Realms of Despair",
                  "Reinos de Leyenda", "StickMUD", "WoTMUD", "ZombieMUD"})
 {
@@ -161,6 +163,19 @@ dlgConnectionProfiles::dlgConnectionProfiles(QWidget * parent)
 
     welcome_message->setDocument(pWelcome_document);
 
+    mpAction_revealPassword = new QAction(this);
+    mpAction_revealPassword->setCheckable(true);
+    mpAction_revealPassword->setObjectName(QStringLiteral("mpAction_revealPassword"));
+    slot_togglePasswordVisibility(false);
+
+    character_password_entry->addAction(mpAction_revealPassword, QLineEdit::TrailingPosition);
+    if (mudlet::self()->storingPasswordsSecurely()) {
+        character_password_entry->setToolTip(tr("Characters password, stored securely in the computer's credential manager"));
+    } else {
+        character_password_entry->setToolTip(tr("Characters password. Note that the password isn't encrypted in storage"));
+    }
+
+    connect(mpAction_revealPassword, &QAction::triggered, this, &dlgConnectionProfiles::slot_togglePasswordVisibility);
     connect(offline_button, &QAbstractButton::clicked, this, &dlgConnectionProfiles::slot_load);
     connect(connect_button, &QAbstractButton::clicked, this, &dlgConnectionProfiles::accept);
     connect(abort, &QAbstractButton::clicked, this, &dlgConnectionProfiles::slot_cancel);
@@ -259,10 +274,45 @@ void dlgConnectionProfiles::slot_update_website(const QString &url)
 void dlgConnectionProfiles::slot_update_pass(const QString &pass)
 {
     QListWidgetItem* pItem = profiles_tree_widget->currentItem();
-    if (pItem) {
-        QString profile = pItem->text();
+    if (!pItem) {
+        return;
+    }
+
+    const auto profile = pItem->text();
+    if (mudlet::self()->storingPasswordsSecurely()) {
+        writeSecurePassword(profile, pass);
+    } else {
         writeProfileData(profile, QStringLiteral("password"), pass);
     }
+}
+
+void dlgConnectionProfiles::writeSecurePassword(const QString& profile, const QString& pass) const
+{
+    auto *job = new QKeychain::WritePasswordJob(QStringLiteral("Mudlet profile"));
+    job->setAutoDelete(false);
+    job->setInsecureFallback(false);
+
+    job->setKey(profile);
+    job->setTextData(pass);
+    job->setProperty("profile", profile);
+
+    connect(job, &QKeychain::WritePasswordJob::finished, this, &dlgConnectionProfiles::slot_password_saved);
+
+    job->start();
+}
+
+void dlgConnectionProfiles::deleteSecurePassword(const QString& profile) const
+{
+    auto *job = new QKeychain::DeletePasswordJob(QStringLiteral("Mudlet profile"));
+    job->setAutoDelete(false);
+    job->setInsecureFallback(false);
+
+    job->setKey(profile);
+    job->setProperty("profile", profile);
+
+    connect(job, &QKeychain::WritePasswordJob::finished, this, &dlgConnectionProfiles::slot_password_deleted);
+
+    job->start();
 }
 
 void dlgConnectionProfiles::slot_update_login(const QString &login)
@@ -403,6 +453,8 @@ void dlgConnectionProfiles::slot_save_name()
     if (currentProfileEditName == newProfileName) {
         return;
     }
+
+    migrateSecuredPassword(currentProfileEditName, newProfileName);
 
     pItem->setText(newProfileName);
 
@@ -632,6 +684,9 @@ QString dlgConnectionProfiles::readProfileData(const QString& profile, const QSt
     QString ret;
     if (success) {
         QDataStream ifs(&file);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            ifs.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         ifs >> ret;
         file.close();
     }
@@ -645,6 +700,9 @@ QPair<bool, QString> dlgConnectionProfiles::writeProfileData(const QString& prof
     QFile file(f);
     if (file.open(QIODevice::WriteOnly | QIODevice::Unbuffered)) {
         QDataStream ofs(&file);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            ofs.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         ofs << what;
         file.close();
     }
@@ -759,6 +817,9 @@ QString dlgConnectionProfiles::getDescription(const QString& hostUrl, const quin
                  * Clessidra e' il primo MUD completamente in italiano mai creato. Su Clessidra potrete trovare solo aree originali ed in italiano. Molte caratteristiche rendono Clessidra uno dei migliori, se non il migliore, MUD in Italia : Avanzati sistemi di spostamento, sfide uno-contro-uno contro gli amici, o i nemici, L'arena e i combattimenti, Le sfide all'ultimo sangue e i MOB intelligenti con le loro Quest e tecniche di combattimento, un sistema di assegnazione di missioni casuali e un avanzatissimo sistema di Clan che permettera' guerre e conquiste. Disponibilità di mercenari in caso di poca utenza, sistema di produzione/mercato per ottenere esclusivi oggetti, un interfaccia grafica per aiutarti a giocare, sia per i novizi che gli esperti. Un MUD che si evolve di continuo.
                  * -- end translation --
                  */
+    } else if (hostUrl == QStringLiteral("fierymud.org")) {
+        return QStringLiteral(
+                "The original vision of FieryMUD was to create a challanging MUD for advanced players. This new reborne Fiery is a hope to bring back the goals of the past by inflicting certain death on unsuspecting players. FieryMUD will continue to grow and change through the coming years and those players who seek challenge and possess imagination will come in search of what the 3D world fails to offer them.");
     } else {
         return readProfileData(profile_name, QStringLiteral("description"));
     }
@@ -770,6 +831,7 @@ void dlgConnectionProfiles::slot_item_clicked(QListWidgetItem* pItem)
         return;
     }
 
+    slot_togglePasswordVisibility(false);
 
     QString profile_name = pItem->text();
 
@@ -840,12 +902,14 @@ void dlgConnectionProfiles::slot_item_clicked(QListWidgetItem* pItem)
         if (profile_name == QStringLiteral("Reinos de Leyenda")) {
             host_url = QStringLiteral("reinosdeleyenda.es");
         }
+        if (profile_name == QStringLiteral("Fierymud")) {
+            host_url = QStringLiteral("fierymud.org");
+        }
         if (profile_name == QStringLiteral("Mudlet self-test")) {
             host_url = QStringLiteral("mudlet.org");
         }
     }
     host_name_entry->setText(host_url);
-
 
     QString host_port = readProfileData(profile, QStringLiteral("port"));
     QString val = readProfileData(profile, QStringLiteral("ssl_tsl"));
@@ -952,6 +1016,9 @@ void dlgConnectionProfiles::slot_item_clicked(QListWidgetItem* pItem)
             host_port = QStringLiteral("23");
             port_ssl_tsl->setChecked(false);
         }
+        if (profile_name == QStringLiteral("Fierymud")) {
+            host_port = QStringLiteral("4000");
+        }
         if (profile_name == QStringLiteral("Mudlet self-test")) {
             host_port = QStringLiteral("23");
             port_ssl_tsl->setChecked(false);
@@ -960,8 +1027,19 @@ void dlgConnectionProfiles::slot_item_clicked(QListWidgetItem* pItem)
 
     port_entry->setText(host_port);
 
-    val = readProfileData(profile, QStringLiteral("password"));
-    character_password_entry->setText(val);
+    // if we're currently copying a profile, don't blank and re-load the password,
+    // because there isn't one in storage yet. It'll be copied over into the widget
+    // by the copy method
+    if (!mCopyingProfile) {
+        character_password_entry->setText(QString());
+        loadSecuredPassword(profile, [this, profile_name](const QString& password) {
+            if (!password.isEmpty()) {
+                character_password_entry->setText(password);
+            } else {
+                character_password_entry->setText(readProfileData(profile_name, QStringLiteral("password")));
+            }
+        });
+    }
 
     val = readProfileData(profile, QStringLiteral("login"));
     login_entry->setText(val);
@@ -1056,6 +1134,9 @@ void dlgConnectionProfiles::slot_item_clicked(QListWidgetItem* pItem)
         }
         if (profile_name == QStringLiteral("Clessidra")) {
             val = QStringLiteral("<center><a href='http://www.clessidra.it/'>http://www.clessidra.it</a></center>");
+        }
+        if (profile_name == QStringLiteral("Fierymud")) {
+            val = QStringLiteral("<center><a href='https://www.fierymud.org/'>https://www.fierymud.org</a></center>");
         }
         if (profile_name == QStringLiteral("Reinos de Leyenda")) {
             val = QStringLiteral("<center><a href='https://www.reinosdeleyenda.es/'>Main website</a></center>\n"
@@ -1180,7 +1261,8 @@ void dlgConnectionProfiles::updateDiscordStatus()
 }
 
 // (re-)creates the dialogs profile list
-void dlgConnectionProfiles::fillout_form() {
+void dlgConnectionProfiles::fillout_form()
+{
     profiles_tree_widget->clear();
     profile_name_entry->clear();
     host_name_entry->clear();
@@ -1600,6 +1682,26 @@ void dlgConnectionProfiles::fillout_form() {
         }
     }
 
+
+    mudServer = QStringLiteral("Fierymud");
+    if (!deletedDefaultMuds.contains(mudServer)) {
+        pM = new QListWidgetItem(mudServer);
+        pM->setFont(font);
+        pM->setForeground(QColor(Qt::white));
+        profiles_tree_widget->addItem(pM);
+        if (!hasCustomIcon(mudServer)) {
+            mi = QIcon(QStringLiteral(":/icons/fiery_mud.png"));
+            pM->setIcon(mi);
+        } else {
+            setCustomIcon(mudServer, pM);
+        }
+        description = getDescription(QStringLiteral("fierymud.org"), 0, mudServer);
+        if (!description.isEmpty()) {
+            pM->setToolTip(QLatin1String("<html><head/><body><p>") % description % QLatin1String("</p></body></html>"));
+        }
+    }
+
+
 #if defined(QT_DEBUG)
     mudServer = QStringLiteral("Mudlet self-test");
     if (!deletedDefaultMuds.contains(mudServer) && !mProfileList.contains(mudServer)) {
@@ -1649,14 +1751,16 @@ void dlgConnectionProfiles::fillout_form() {
     if (firstMudletLaunch) {
         // Select a random pre-defined profile to give all MUDs a fair go first time
         // make sure not to select the test_profile though
-        if (profiles_tree_widget->count() != 1) {
+        if (profiles_tree_widget->count() > 1) {
             while (toselectRow == -1 || toselectRow == test_profile_row) {
                 toselectRow = qrand() % profiles_tree_widget->count();
             }
         }
     }
 
-    profiles_tree_widget->setCurrentRow(toselectRow);
+    if (toselectRow != -1) {
+        profiles_tree_widget->setCurrentRow(toselectRow);
+    }
 
     updateDiscordStatus();
 }
@@ -1707,6 +1811,43 @@ void dlgConnectionProfiles::setCustomIcon(const QString& profileName, QListWidge
     auto profileIconPath = mudlet::getMudletPath(mudlet::profileDataItemPath, profileName, QStringLiteral("profileicon"));
     auto icon = QIcon(QPixmap(profileIconPath).scaled(QSize(120, 30), Qt::IgnoreAspectRatio, Qt::SmoothTransformation).copy());
     profile->setIcon(icon);
+}
+
+// When a profile is renamed, migrate password storage to the new profile
+void dlgConnectionProfiles::migrateSecuredPassword(const QString &oldProfile, const QString &newProfile)
+{
+    const auto& password = character_password_entry->text().trimmed();
+
+    deleteSecurePassword(oldProfile);
+    writeSecurePassword(newProfile, password);
+}
+
+template <typename L>
+void dlgConnectionProfiles::loadSecuredPassword(const QString &profile, L callback)
+{
+    // character_password_entry
+
+    auto *job = new QKeychain::ReadPasswordJob(QStringLiteral("Mudlet profile"));
+    job->setAutoDelete(false);
+    job->setInsecureFallback(false);
+
+    job->setKey(profile);
+
+    connect(job, &QKeychain::ReadPasswordJob::finished, this, [=](QKeychain::Job* job) {
+        if (job->error()) {
+            const auto error = job->errorString();
+            if (error != QStringLiteral("Entry not found") && error != QStringLiteral("No match")) {
+            qDebug() << "dlgConnectionProfiles::loadSecuredPassword ERROR: couldn't retrieve secure password for" << profile << ", error is:" << error;
+            }
+        }
+
+        auto readJob = static_cast<QKeychain::ReadPasswordJob*>(job);
+        callback(readJob->textData());
+
+        job->deleteLater();
+    });
+
+    job->start();
 }
 
 void dlgConnectionProfiles::generateCustomProfile(const QFont& font, int i, const QString& profileName) const
@@ -1814,6 +1955,24 @@ void dlgConnectionProfiles::slot_reset_custom_icon()
     profiles_tree_widget->setCurrentRow(currentRow);
 }
 
+void dlgConnectionProfiles::slot_password_saved(QKeychain::Job *job)
+{
+    if (job->error()) {
+        qWarning() << "dlgConnectionProfiles::slot_password_saved ERROR: couldn't save password for" << job->property("profile") << "; error was:" << job->errorString();
+    }
+
+    job->deleteLater();
+}
+
+void dlgConnectionProfiles::slot_password_deleted(QKeychain::Job *job)
+{
+    if (job->error()) {
+        qWarning() << "dlgConnectionProfiles::slot_password_deleted ERROR: couldn't delete password for" << job->property("profile") << "; error was:" << job->errorString();
+    }
+
+    job->deleteLater();
+}
+
 void dlgConnectionProfiles::slot_cancel()
 {
     // QDialog::Rejected is the enum value (= 0) return value for a "cancelled"
@@ -1823,16 +1982,22 @@ void dlgConnectionProfiles::slot_cancel()
 
 void dlgConnectionProfiles::slot_copy_profile()
 {
+    mCopyingProfile = true;
+
     QString profile_name;
     QString oldname;
     QListWidgetItem* pItem;
+    const auto oldPassword = character_password_entry->text();
+
     if (!copyProfileWidget(profile_name, oldname, pItem)) {
+        mCopyingProfile = false;
         return;
     }
 
     // copy the folder on-disk
     QDir dir(mudlet::getMudletPath(mudlet::profileHomePath, oldname));
     if (!dir.exists()) {
+        mCopyingProfile = false;
         return;
     }
 
@@ -1844,6 +2009,13 @@ void dlgConnectionProfiles::slot_copy_profile()
     // one may have had it enabled does not mean we can assume the new one would
     // want it set:
     discord_optin_checkBox->setChecked(false);
+
+    // restore the password, which won't be copied by the disk copy if stored in the credential manager
+    character_password_entry->setText(oldPassword);
+    if (mudlet::self()->storingPasswordsSecurely()) {
+        writeSecurePassword(profile_name, oldPassword);
+    }
+    mCopyingProfile = false;
 }
 
 void dlgConnectionProfiles::slot_copy_profilesettings_only()
@@ -2099,8 +2271,6 @@ void dlgConnectionProfiles::loadProfile(bool alsoConnect)
             || pHost->getUrl().contains(QStringLiteral("lusternia.com"), Qt::CaseInsensitive)
             || pHost->getUrl().contains(QStringLiteral("imperian.com"), Qt::CaseInsensitive)) {
             mudlet::self()->packagesToInstallList.append(QStringLiteral(":/mudlet-mapper.xml"));
-        } else if (pHost->getUrl().contains(QStringLiteral("3scapes.org"), Qt::CaseInsensitive) || pHost->getUrl().contains(QStringLiteral("3k.org"), Qt::CaseInsensitive)) {
-            mudlet::self()->packagesToInstallList.append(QStringLiteral(":/3k-mapper.xml"));
         } else if ( not pHost->getUrl().contains(QStringLiteral("mudlet.org"), Qt::CaseInsensitive) ) {
             mudlet::self()->packagesToInstallList.append(QStringLiteral(":/mudlet-lua/lua/generic-mapper/generic_mapper.xml"));
         }
@@ -2286,5 +2456,30 @@ void dlgConnectionProfiles::copyFolder(const QString& sourceFolder, const QStrin
         QString srcName = sourceFolder + QDir::separator() + files[i];
         QString destName = destFolder + QDir::separator() + files[i];
         copyFolder(srcName, destName);
+    }
+}
+
+// As it is wired to the triggered() signal it is only called that way when
+// the user clicks on the action, and not when setChecked() is used.
+void dlgConnectionProfiles::slot_togglePasswordVisibility(const bool showPassword)
+{
+    if (mpAction_revealPassword->isChecked() != showPassword) {
+        // This will only be reached and needed by a call NOT prompted by the
+        // user clicking on the icon - i.e. either when a different profile is
+        // selected or when called from the constructor:
+        mpAction_revealPassword->setChecked(showPassword);
+    }
+
+    if (mpAction_revealPassword->isChecked()) {
+        character_password_entry->setEchoMode(QLineEdit::Normal);
+        // In practice I could not get the icon to change based upon supplying
+        // different QPixmaps for the QIcon for different states - so lets do it
+        // directly:
+        mpAction_revealPassword->setIcon(QIcon::fromTheme(QStringLiteral("password-show-on"), QIcon(QStringLiteral(":/icons/password-show-on.png"))));
+        mpAction_revealPassword->setToolTip(tr("<p>Click to hide the password; it will also hide if another profile is selected.</p>"));
+    } else {
+        character_password_entry->setEchoMode(QLineEdit::Password);
+        mpAction_revealPassword->setIcon(QIcon::fromTheme(QStringLiteral("password-show-off"), QIcon(QStringLiteral(":/icons/password-show-off.png"))));
+        mpAction_revealPassword->setToolTip(tr("<p>Click to reveal the password for this profile.</p>"));
     }
 }

@@ -30,6 +30,7 @@
 #include "TCommandLine.h"
 #include "TEvent.h"
 #include "TMap.h"
+#include "TMedia.h"
 #include "TRoomDB.h"
 #include "TScript.h"
 #include "XMLimport.h"
@@ -38,11 +39,149 @@
 #include "mudlet.h"
 
 #include "pre_guard.h"
+#include <chrono>
 #include <QtUiTools>
 #include <QNetworkProxy>
 #include <zip.h>
 #include <memory>
 #include "post_guard.h"
+
+stopWatch::stopWatch()
+: mIsInitialised(false)
+, mIsRunning(false)
+, mIsPersistent(false)
+, mEffectiveStartDateTime()
+, mElapsedTime()
+{
+    mEffectiveStartDateTime.setTimeSpec(Qt::UTC);
+}
+
+bool stopWatch::start()
+{
+    if (!mIsInitialised) {
+        mIsInitialised = true;
+        mEffectiveStartDateTime = QDateTime::currentDateTimeUtc();
+        mIsRunning = true;
+        return true;
+    }
+
+    if (mIsRunning) {
+        // Nothing to do, already running
+        return false;
+    }
+
+    // Is stopped, so subtract elapsed time from current and set that to be the
+    // effective start time:
+    mEffectiveStartDateTime = QDateTime::currentDateTimeUtc().addMSecs(-mElapsedTime);
+    mIsRunning = true;
+    return true;
+}
+
+bool stopWatch::stop()
+{
+    if (!mIsInitialised) {
+        // Nothing to do, never started
+        return false;
+    }
+
+    if (!mIsRunning) {
+        // Nothing to do, already stopped
+        return false;
+    }
+
+    // Is running - so stop and note time:
+    mElapsedTime = mEffectiveStartDateTime.msecsTo(QDateTime::currentDateTimeUtc());
+    mIsRunning = false;
+    return true;
+}
+
+bool stopWatch::reset()
+{
+    if (!mIsInitialised) {
+        // Nothing to do, never started
+        return false;
+    }
+
+    if (!mIsRunning) {
+        // Not running, so reset elapsed time:
+        mElapsedTime = 0;
+        // And reset initialised flag:
+        mIsInitialised = false;
+        return true;
+    }
+
+    // Is running so reset effective start time - BUT THIS DOES NOT stop the
+    // stopwatch:
+    mEffectiveStartDateTime = QDateTime::currentDateTimeUtc();
+    return true;
+}
+
+void stopWatch::adjustMilliSeconds(const qint64 adjustment)
+{
+    if (!mIsInitialised) {
+        // We can initialise things in this case by setting the flag and falling
+        // through into the is not running situation - with the elapsed time
+        // being zero up to now we just have to add on the adjustment:
+        mIsInitialised = true;
+    }
+
+    if (!mIsRunning) {
+        // Not running so adjust stored elapsed time:
+        mElapsedTime += adjustment;
+    }
+
+    // Is running so adjust effective start time - to increase the effective
+    // elapsed time we must subtract the adjustment from the effect start time:
+    mEffectiveStartDateTime = mEffectiveStartDateTime.addMSecs(-adjustment);
+}
+
+qint64 stopWatch::getElapsedMilliSeconds() const
+{
+    if (!mIsInitialised) {
+        // Never started so no elapsed time:
+        return 0;
+    }
+
+    if (!mIsRunning) {
+        // Not running - so return elapsed time:
+        return mElapsedTime;
+    }
+
+    // Is running so calculate elapsed time:
+    return mEffectiveStartDateTime.msecsTo(QDateTime::currentDateTimeUtc());
+}
+
+QString stopWatch::getElapsedDayTimeString() const
+{
+    using namespace std::chrono_literals;
+
+    if (!mIsInitialised) {
+        return QStringLiteral("+:0:0:0:0:000");
+    }
+
+    qint64 elapsed = 0;
+    if (mIsRunning) {
+        elapsed = mEffectiveStartDateTime.msecsTo(QDateTime::currentDateTimeUtc());
+    } else {
+        elapsed = mElapsedTime;
+    }
+
+    bool isNegative = false;
+    if (elapsed < 0) {
+        isNegative = true;
+        elapsed *= -1;
+    }
+
+    qint64 days = elapsed / std::chrono::milliseconds(24h).count();
+    qint64 remainder = elapsed - (days * std::chrono::milliseconds(24h).count());
+    quint8 hours = static_cast<quint8>(remainder / std::chrono::milliseconds(1h).count());
+    remainder = remainder - (hours * std::chrono::milliseconds(1h).count());
+    quint8 minutes = static_cast<quint8>(remainder / std::chrono::milliseconds(1min).count());
+    remainder = remainder - (minutes * std::chrono::milliseconds(1min).count());
+    quint8 seconds = static_cast<quint8>(remainder / std::chrono::milliseconds(1s).count());
+    quint16 milliSeconds = static_cast<quint16>(remainder - (seconds * std::chrono::milliseconds(1s).count()));
+    return QStringLiteral("%1:%2:%3:%4:%5:%6").arg((isNegative ? QLatin1String("-") : QLatin1String("+")), QString::number(days), QString::number(hours), QString::number(minutes), QString::number(seconds), QString::number(milliSeconds));
+}
 
 Host::Host(int port, const QString& hostname, const QString& login, const QString& pass, int id)
 : mTelnet(this, hostname)
@@ -53,17 +192,22 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mAllowToSendCommand(true)
 , mAutoClearCommandLineAfterSend(false)
 , mBlockScriptCompile(true)
+, mBlockStopWatchCreation(true)
 , mEchoLuaErrors(false)
 , mBorderBottomHeight(0)
 , mBorderLeftWidth(0)
 , mBorderRightWidth(0)
 , mBorderTopHeight(0)
-, mCommandLineFont(QFont("Bitstream Vera Sans Mono", 10, QFont::Normal))
-, mCommandSeparator(QLatin1String(";;"))
-, mDisplayFont(QFont("Bitstream Vera Sans Mono", 10, QFont::Normal))
+, mCommandLineFont(QFont(QStringLiteral("Bitstream Vera Sans Mono"), 14, QFont::Normal))
+, mCommandSeparator(QStringLiteral(";;"))
+, mDisplayFont(QFont(QStringLiteral("Bitstream Vera Sans Mono"), 14, QFont::Normal))
 , mEnableGMCP(true)
+, mEnableMSSP(true)
+, mEnableMSP(true)
 , mEnableMSDP(false)
 , mServerMXPenabled(true)
+, mMediaLocationGMCP(QString())
+, mMediaLocationMSP(QString())
 , mFORCE_GA_OFF(false)
 , mFORCE_NO_COMPRESSION(false)
 , mFORCE_SAVE_ON_EXIT(false)
@@ -80,6 +224,7 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mNoAntiAlias(false)
 , mpEditorDialog(nullptr)
 , mpMap(new TMap(this, hostname))
+, mpMedia(new TMedia(this, hostname))
 , mpNotePad(nullptr)
 , mpTriggerMaker(nullptr)
 , mPrintCommand(true)
@@ -104,6 +249,46 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mEditorThemeFile(QLatin1String("Mudlet.tmTheme"))
 , mThemePreviewItemID(-1)
 , mThemePreviewType(QString())
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+, mBlack(QColorConstants::Black)
+, mLightBlack(QColorConstants::DarkGray)
+, mRed(QColorConstants::DarkRed)
+, mLightRed(QColorConstants::Red)
+, mLightGreen(QColorConstants::Green)
+, mGreen(QColorConstants::DarkGreen)
+, mLightBlue(QColorConstants::Blue)
+, mBlue(QColorConstants::DarkBlue)
+, mLightYellow(QColorConstants::Yellow)
+, mYellow(QColorConstants::DarkYellow)
+, mLightCyan(QColorConstants::Cyan)
+, mCyan(QColorConstants::DarkCyan)
+, mLightMagenta(QColorConstants::Magenta)
+, mMagenta(QColorConstants::DarkMagenta)
+, mLightWhite(QColorConstants::White)
+, mWhite(QColorConstants::LightGray)
+, mFgColor(QColorConstants::LightGray)
+, mBgColor(QColorConstants::Black)
+, mCommandBgColor(QColorConstants::Black)
+, mCommandFgColor(QColor(113, 113, 0))
+, mBlack_2(QColorConstants::Black)
+, mLightBlack_2(QColorConstants::DarkGray)
+, mRed_2(QColorConstants::DarkRed)
+, mLightRed_2(QColorConstants::Red)
+, mLightGreen_2(QColorConstants::Green)
+, mGreen_2(QColorConstants::DarkGreen)
+, mLightBlue_2(QColorConstants::Blue)
+, mBlue_2(QColorConstants::DarkBlue)
+, mLightYellow_2(QColorConstants::Yellow)
+, mYellow_2(QColorConstants::DarkYellow)
+, mLightCyan_2(QColorConstants::Cyan)
+, mCyan_2(QColorConstants::DarkCyan)
+, mLightMagenta_2(QColorConstants::Magenta)
+, mMagenta_2(QColorConstants::DarkMagenta)
+, mLightWhite_2(QColorConstants::White)
+, mWhite_2(QColorConstants::LightGray)
+, mFgColor_2(QColorConstants::LightGray)
+, mBgColor_2(QColorConstants::Black)
+#else
 , mBlack(Qt::black)
 , mLightBlack(Qt::darkGray)
 , mRed(Qt::darkRed)
@@ -142,6 +327,7 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mWhite_2(Qt::lightGray)
 , mFgColor_2(Qt::lightGray)
 , mBgColor_2(Qt::black)
+#endif
 , mMapStrongHighlight(false)
 , mLogStatus(false)
 , mEnableSpellCheck(true)
@@ -156,6 +342,7 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mServerGUI_Package_version(QLatin1String("-1"))
 , mServerGUI_Package_name(QLatin1String("nothing"))
 , mAcceptServerGUI(true)
+, mAcceptServerMedia(true)
 , mCommandLineFgColor(Qt::darkGray)
 , mCommandLineBgColor(Qt::black)
 , mMapperUseAntiAlias(true)
@@ -186,9 +373,19 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 // DISABLED: - Prevent "None" option for user dictionary - changed to true and not changed anywhere else
 , mEnableUserDictionary(true)
 , mUseSharedDictionary(false)
+, mPlayerRoomStyle(0)
+, mPlayerRoomOuterColor(Qt::red)
+, mPlayerRoomInnerColor(Qt::white)
+, mPlayerRoomOuterDiameterPercentage(120)
+, mPlayerRoomInnerDiameterPercentage(70)
 {
     // mLogStatus = mudlet::self()->mAutolog;
     mLuaInterface.reset(new LuaInterface(this));
+
+    // Copy across the details needed for the "color_table":
+    mLuaInterpreter.updateAnsi16ColorsInTable();
+    mLuaInterpreter.updateExtendedAnsiColorsInTable();
+
     QString directoryLogFile = mudlet::getMudletPath(mudlet::profileDataItemPath, mHostName, QStringLiteral("log"));
     QString logFileName = QStringLiteral("%1/errors.txt").arg(directoryLogFile);
     QDir dirLogFile;
@@ -230,6 +427,8 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
     if (!optin.isEmpty()) {
         mDiscordDisableServerSide = optin.toInt() == Qt::Unchecked ? true : false;
     }
+
+    loadSecuredPassword();
 }
 
 Host::~Host()
@@ -380,6 +579,7 @@ void Host::reloadModule(const QString& reloadModuleName)
 
 void Host::resetProfile_phase1()
 {
+    mAliasUnit.stopAllTriggers();
     mTriggerUnit.stopAllTriggers();
     mTimerUnit.stopAllTriggers();
     mKeyUnit.stopAllTriggers();
@@ -392,10 +592,13 @@ void Host::resetProfile_phase1()
 
 void Host::resetProfile_phase2()
 {
+    getAliasUnit()->removeAllTempAliases();
     getTimerUnit()->removeAllTempTimers();
     getTriggerUnit()->removeAllTempTriggers();
     getKeyUnit()->removeAllTempKeys();
+    removeAllNonPersistentStopWatches();
 
+    mAliasUnit.doCleanup();
     mTimerUnit.doCleanup();
     mTriggerUnit.doCleanup();
     mKeyUnit.doCleanup();
@@ -414,9 +617,14 @@ void Host::resetProfile_phase2()
     // All the Timers are NOT compiled here;
     mResetProfile = false;
 
+    mAliasUnit.reenableAllTriggers();
     mTimerUnit.reenableAllTriggers();
     mTriggerUnit.reenableAllTriggers();
     mKeyUnit.reenableAllTriggers();
+
+    // Have to recopy the values into the Lua "color_table"
+    mLuaInterpreter.updateAnsi16ColorsInTable();
+    mLuaInterpreter.updateExtendedAnsiColorsInTable();
 
     TEvent event {};
     event.mArgumentList.append(QLatin1String("sysLoadEvent"));
@@ -533,6 +741,83 @@ void Host::setMmpMapLocation(const QString& data)
 QString Host::getMmpMapLocation() const
 {
     return mpMap->getMmpMapLocation();
+}
+// error and debug consoles inherit font of the main console
+void Host::updateConsolesFont()
+{
+    if (mpEditorDialog) {
+        if (mpEditorDialog->mpErrorConsole) {
+            mpEditorDialog->mpErrorConsole->setMiniConsoleFont(mDisplayFont.family());
+            mpEditorDialog->mpErrorConsole->setMiniConsoleFontSize(mDisplayFont.pointSize());
+        }
+        if (mudlet::self()->mpDebugArea) {
+            mudlet::self()->mpDebugConsole->setMiniConsoleFont(mDisplayFont.family());
+            mudlet::self()->mpDebugConsole->setMiniConsoleFontSize(mDisplayFont.pointSize());
+        }
+    }
+}
+
+void Host::setMediaLocationGMCP(const QString& mediaUrl)
+{
+    QUrl url = QUrl(mediaUrl);
+
+    if (!url.isValid()) {
+        return;
+    }
+
+    mMediaLocationGMCP = mediaUrl;
+}
+
+QString Host::getMediaLocationGMCP() const
+{
+    return mMediaLocationGMCP;
+}
+
+void Host::setMediaLocationMSP(const QString& mediaUrl)
+{
+    QUrl url = QUrl(mediaUrl);
+
+    if (!url.isValid()) {
+        return;
+    }
+
+    mMediaLocationMSP = mediaUrl;
+}
+
+QString Host::getMediaLocationMSP() const
+{
+    return mMediaLocationMSP;
+}
+
+std::pair<bool, QString> Host::setDisplayFont(const QFont& font)
+{
+    const QFontMetrics metrics(font);
+    if (metrics.averageCharWidth() == 0) {
+        return std::make_pair(false, QStringLiteral("specified font is invalid (its letters have 0 width)"));
+    }
+
+    mDisplayFont = font;
+    updateConsolesFont();
+    return std::make_pair(true, QString());
+}
+
+std::pair<bool, QString> Host::setDisplayFont(const QString& fontName)
+{
+    const auto result = setDisplayFont(QFont(fontName));
+    updateConsolesFont();
+    return result;
+}
+
+void Host::setDisplayFontFromString(const QString& fontData)
+{
+    mDisplayFont.fromString(fontData);
+    updateConsolesFont();
+}
+
+void Host::setDisplayFontSize(int size)
+{
+    mDisplayFont.setPointSize(size);
+    updateConsolesFont();
 }
 
 // Now returns the total weight of the path
@@ -655,49 +940,340 @@ void Host::send(QString cmd, bool wantPrint, bool dontExpandAliases)
     }
 }
 
-int Host::createStopWatch()
+QPair<int, QString> Host::createStopWatch(const QString& name)
 {
-    int newWatchID = mStopWatchMap.size() + 1;
-    mStopWatchMap[newWatchID] = QTime(0, 0, 0, 0);
-    return newWatchID;
-}
-
-double Host::getStopWatchTime(int watchID)
-{
-    if (mStopWatchMap.contains(watchID)) {
-        return static_cast<double>(mStopWatchMap[watchID].elapsed()) / 1000;
-    } else {
-        return -1.0;
+    if (mResetProfile || mBlockStopWatchCreation) {
+        // Don't create stopwatches when test loading scripts or during a profile reset:
+        return qMakePair(0, QStringLiteral("unable to create a stopwatch at this time"));
     }
+
+    if (!mStopWatchMap.isEmpty() && !name.isEmpty()) {
+        QMapIterator<int, stopWatch*> itStopWatch(mStopWatchMap);
+        while (itStopWatch.hasNext()) {
+            itStopWatch.next();
+            if (itStopWatch.value()->name() == name) {
+                return qMakePair(0, QStringLiteral("a stopwatch with id %1 called \"%2\" already exists").arg(QString::number(itStopWatch.key()), name));
+            }
+        }
+    }
+    int newWatchId = 1;
+    while (mStopWatchMap.contains(newWatchId)) {
+        ++newWatchId;
+    };
+
+    // It is hard to imagine a situation in which this will fail - so we won't
+    // bother coding for it:
+    auto pStopWatch = new stopWatch();
+    Q_ASSERT_X(pStopWatch, "Host::createStopWatch", "out of memory, unable to create new stopwatch");
+    if (!name.isEmpty()) {
+        pStopWatch->setName(name);
+    }
+
+    mStopWatchMap.insert(newWatchId, pStopWatch);
+    return qMakePair(newWatchId, QString());
 }
 
-bool Host::startStopWatch(int watchID)
+bool Host::destroyStopWatch(const int id)
 {
-    if (mStopWatchMap.contains(watchID)) {
-        mStopWatchMap[watchID].start();
-        return true;
-    } else {
+    auto pStopWatch = mStopWatchMap.take(id);
+    if (!pStopWatch) {
         return false;
     }
+
+    delete pStopWatch;
+    return true;
 }
 
-double Host::stopStopWatch(int watchID)
+bool Host::adjustStopWatch(const int id, const qint64 milliSeconds)
 {
-    if (mStopWatchMap.contains(watchID)) {
-        return static_cast<double>(mStopWatchMap[watchID].elapsed()) / 1000;
-    } else {
-        return -1.0;
-    }
-}
-
-bool Host::resetStopWatch(int watchID)
-{
-    if (mStopWatchMap.contains(watchID)) {
-        mStopWatchMap[watchID].setHMS(0, 0, 0, 0);
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        pStopWatch->adjustMilliSeconds(milliSeconds);
         return true;
-    } else {
-        return false;
     }
+
+    return false;
+}
+
+// Find the first (lowest ID) stopwatch with the given name and return its id,
+// returns 0 (not a valid id) if the name is not found. It WILL return the first
+// unnamed one if a blank string is given:
+int Host::findStopWatchId(const QString& name) const
+{
+    // Scan through existing names, in ascending id order
+    QList<int> stopWatchIdList = mStopWatchMap.keys();
+    int total = stopWatchIdList.size();
+    if (total > 1) {
+        std::sort(stopWatchIdList.begin(), stopWatchIdList.end());
+    }
+    for (int index = 0, total = stopWatchIdList.size(); index < total; ++index) {
+        auto currentId = stopWatchIdList.at(index);
+        auto pCurrentStopWatch = mStopWatchMap.value(currentId);
+        if (pCurrentStopWatch->name() == name) {
+            return currentId;
+        }
+    }
+    return 0;
+}
+
+QPair<bool, double> Host::getStopWatchTime(const int id) const
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        return qMakePair(true, pStopWatch->getElapsedMilliSeconds() / 1000.0);
+    } else {
+        return qMakePair(false, 0.0);
+    }
+}
+
+QPair<bool, QString> Host::getBrokenDownStopWatchTime(const int id) const
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        return qMakePair(true, pStopWatch->getElapsedDayTimeString());
+    } else {
+        return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+    }
+}
+
+QPair<bool, QString> Host::startStopWatch(const QString& name)
+{
+    auto watchId = findStopWatchId(name);
+    if (!watchId) {
+        if (name.isEmpty()) {
+            return qMakePair(false, QLatin1String("no unnamed stopwatches found"));
+        } else {
+            return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" not found").arg(name));
+        }
+    }
+
+    auto pStopWatch = mStopWatchMap.value(watchId);
+    if (Q_LIKELY(pStopWatch)) {
+        if (pStopWatch->start()) {
+            return qMakePair(true, QString());
+        }
+
+        return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) was already running").arg(name, QString::number(watchId)));
+    }
+
+    // This should, indeed, be:
+    Q_UNREACHABLE();
+    return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) not found").arg(name, QString::number(watchId)));
+}
+
+QPair<bool, QString> Host::startStopWatch(int id)
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        if (pStopWatch->start()) {
+            return qMakePair(true, QString());
+        }
+
+        return qMakePair(false, QStringLiteral("stopwatch with id %1 was already running").arg(id));
+    }
+
+    return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+}
+
+QPair<bool, QString> Host::stopStopWatch(const QString& name)
+{
+    auto watchId = findStopWatchId(name);
+    if (!watchId) {
+        if (name.isEmpty()) {
+            return qMakePair(false, QLatin1String("no unnamed stopwatches found"));
+        } else {
+            return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" not found").arg(name));
+        }
+    }
+
+    auto pStopWatch = mStopWatchMap.value(watchId);
+    if (Q_LIKELY(pStopWatch)) {
+        if (pStopWatch->stop()) {
+            return qMakePair(true, QString());
+        }
+
+        return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) was already stopped").arg(name, QString::number(watchId)));
+    }
+
+    // This should, indeed, be:
+    Q_UNREACHABLE();
+    return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) not found").arg(name, QString::number(watchId)));
+}
+
+QPair<bool, QString> Host::stopStopWatch(const int id)
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        if (pStopWatch->stop()) {
+            return qMakePair(true, QString());
+        }
+
+        return qMakePair(false, QStringLiteral("stopwatch with id %1 was already stopped").arg(id));
+    }
+
+    return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+}
+
+QPair<bool, QString> Host::resetStopWatch(const QString& name)
+{
+    auto watchId = findStopWatchId(name);
+    if (!watchId) {
+        if (name.isEmpty()) {
+            return qMakePair(false, QLatin1String("no unnamed stopwatches found"));
+        } else {
+            return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" not found").arg(name));
+        }
+    }
+
+    auto pStopWatch = mStopWatchMap.value(watchId);
+    if (Q_LIKELY(pStopWatch)) {
+        if (pStopWatch->reset()) {
+            return qMakePair(true, QString());
+        }
+
+        if (name.isEmpty()) {
+            return qMakePair(false, QStringLiteral("the first unnamed stopwatch (id:%1) was already reset").arg(watchId));
+        } else {
+            return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) was already reset").arg(name, QString::number(watchId)));
+        }
+    }
+
+    // This should, indeed, be:
+    Q_UNREACHABLE();
+    return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" (id:%2) not found").arg(name, QString::number(watchId)));
+}
+
+QPair<bool, QString> Host::resetStopWatch(const int id)
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        if (pStopWatch->reset()) {
+            return qMakePair(true, QString());
+        }
+
+        return qMakePair(false, QStringLiteral("stopwatch with id %1 was already reset").arg(id));
+    }
+
+    return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+}
+
+// Used when emulating past behavior for startStopWatch - there is only one
+// which takes a numeric argument as that is what old scripts will be using and
+// not a text name:
+QPair<bool, QString> Host::resetAndRestartStopWatch(const int id)
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        pStopWatch->stop();
+        pStopWatch->reset();
+        pStopWatch->start();
+        return qMakePair(true, QString());
+    }
+
+    return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+}
+
+bool Host::makeStopWatchPersistent(const int id, const bool state)
+{
+    auto pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        pStopWatch->setPersistent(state);
+        return true;
+    }
+
+    return false;
+}
+
+QPair<bool, QString> Host::setStopWatchName(const int id, const QString& newName)
+{
+    stopWatch* pStopWatch = nullptr;
+    if (!newName.isEmpty()) {
+        // Scan through existing names
+        QMutableMapIterator<int, stopWatch*> itStopWatch(mStopWatchMap);
+        while (itStopWatch.hasNext()) {
+            itStopWatch.next();
+            if (itStopWatch.value()->name() == newName) {
+                if (itStopWatch.key() != id) {
+                    return qMakePair(false, QStringLiteral("the name \"%1\" is already in use for another stopwatch (id:%2)").arg(newName, QString::number(itStopWatch.key())));
+                } else {
+                    // Trivial case - the stopwatch is already called by the NEW name:
+                    return qMakePair(true, QString());
+                }
+            }
+        }
+    }
+
+    pStopWatch = mStopWatchMap.value(id);
+    if (pStopWatch) {
+        // Okay found the one we want:
+        pStopWatch->setName(newName);
+        return qMakePair(true, QString());
+    }
+
+    return qMakePair(false, QStringLiteral("stopwatch with id %1 not found").arg(id));
+}
+
+QPair<bool, QString> Host::setStopWatchName(const QString& currentName, const QString& newName)
+{
+    stopWatch* pStopWatch = nullptr;
+    // Scan through existing names, in ascending id order
+    QList<int> stopWatchIdList = mStopWatchMap.keys();
+    int total = stopWatchIdList.size();
+    if (total > 1) {
+        std::sort(stopWatchIdList.begin(), stopWatchIdList.end());
+    }
+    int id = 0;
+    // Although it would be quicker code to return immediately if we detect the
+    // newName is in use the run-time error about it being used will mask a
+    // failure to find the current one (perhaps because it has already been set
+    // to the new value) - so don't moan about that until we have (or have not)
+    // found the current name:
+    bool isAlreadyUsed = false;
+    int alreadyUsedId = 0;
+    // we are looking BOTH for the current name and checking that any other
+    // ones WITH names do not match the new name:
+    for (int index = 0; index < total; ++index) {
+        auto currentId = stopWatchIdList.at(index);
+        auto pCurrentStopWatch = mStopWatchMap.value(currentId);
+        // This will also pick up the FIRST (lowest id) currently unnamed
+        // stopwatch:
+        if (!id && pCurrentStopWatch->name() == currentName) {
+            pStopWatch = pCurrentStopWatch;
+            id = currentId;
+        }
+        // As zero is never used as an Id it okay to use it here before it
+        // is set to the value of the wanted entry:
+        if (!newName.isEmpty() && currentId != id && pCurrentStopWatch->name() == newName) {
+            isAlreadyUsed = true;
+            alreadyUsedId = currentId;
+        }
+    }
+
+    // if pStopWatch is nullptr then the currentName was not found:
+    if (!pStopWatch) {
+        if (currentName.isEmpty()) {
+            return qMakePair(false, QLatin1String("no unnamed stopwatches found"));
+        } else {
+            return qMakePair(false, QStringLiteral("stopwatch with name \"%1\" not found").arg(currentName));
+        }
+    }
+
+    if (isAlreadyUsed) {
+        return qMakePair(false, QStringLiteral("the name \"%1\" is already in use for another stopwatch (id:%2)").arg(newName, QString::number(alreadyUsedId)));
+    }
+
+    if (currentName == newName) {
+        // Trivial case that always succeeds
+        return qMakePair(true, QString());
+    }
+
+    pStopWatch->setName(newName);
+    return qMakePair(true, QString());
+}
+
+QList<int> Host::getStopWatchIds() const
+{
+    return mStopWatchMap.keys();
 }
 
 void Host::incomingStreamProcessor(const QString& data, int line)
@@ -960,6 +1536,9 @@ bool Host::installPackage(const QString& fileName, int module)
                 moduleEntry << fileName;
                 moduleEntry << QStringLiteral("0");
                 mInstalledModules[packageName] = moduleEntry;
+                if (module == 1 || module == 3) {
+                    mModulePriorities[packageName] = 0;
+                }
                 mActiveModules.append(packageName);
             } else {
                 mInstalledPackages.append(packageName);
@@ -973,7 +1552,6 @@ bool Host::installPackage(const QString& fileName, int module)
     } else {
         file2.setFileName(fileName);
         file2.open(QFile::ReadOnly | QFile::Text);
-        //mInstalledPackages.append( packageName );
         QString profileName = getName();
         QString login = getLogin();
         QString pass = getPass();
@@ -983,6 +1561,9 @@ bool Host::installPackage(const QString& fileName, int module)
             moduleEntry << fileName;
             moduleEntry << QStringLiteral("0");
             mInstalledModules[packageName] = moduleEntry;
+            if (module == 1 || module == 3) {
+                mModulePriorities[packageName] = 0;
+            }
             mActiveModules.append(packageName);
         } else {
             mInstalledPackages.append(packageName);
@@ -1251,6 +1832,9 @@ QPair<bool, QString> Host::writeProfileData(const QString& item, const QString& 
     QFile file(mudlet::getMudletPath(mudlet::profileDataItemPath, getName(), item));
     if (file.open(QIODevice::WriteOnly | QIODevice::Unbuffered)) {
         QDataStream ofs(&file);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            ofs.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         ofs << what;
         file.close();
     }
@@ -1270,6 +1854,9 @@ QString Host::readProfileData(const QString& item)
     QString ret;
     if (success) {
         QDataStream ifs(&file);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            ifs.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         ifs >> ret;
         file.close();
     }
@@ -1346,7 +1933,7 @@ void Host::setWideAmbiguousEAsianGlyphs(const Qt::CheckState state)
             mWideAmbigousWidthGlyphs = (state == Qt::Checked);
             localState = (state == Qt::Checked);
             needToEmit = true;
-        };
+        }
 
     }
 
@@ -1452,7 +2039,7 @@ void Host::processGMCPDiscordInfo(const QJsonObject& discordInfo)
     bool hasInvite = false;
     auto inviteUrl = discordInfo.value(QStringLiteral("inviteurl"));
     // Will be of form: "https://discord.gg/#####"
-    if (inviteUrl != QJsonValue::Undefined && !inviteUrl.toString().isEmpty()) {
+    if (inviteUrl != QJsonValue::Undefined && !inviteUrl.toString().isEmpty() && inviteUrl.toString() != QStringLiteral("0")) {
         hasInvite = true;
     }
 
@@ -1476,9 +2063,9 @@ void Host::processGMCPDiscordInfo(const QJsonObject& discordInfo)
 
     if (hasInvite) {
         if (hasCustomAppID) {
-            qDebug() << "Game using a custom Discord server. Invite URL: " << inviteUrl.toString();
+            qDebug() << "Game using a custom Discord server. Invite URL:" << inviteUrl.toString();
         } else if (hasApplicationId) {
-            qDebug() << "Game using Mudlet's Discord server. Invite URL: " << inviteUrl.toString();
+            qDebug() << "Game using Mudlet's Discord server. Invite URL:" << inviteUrl.toString();
         } else {
             qDebug() << "Discord invite URL: " << inviteUrl.toString();
         }
@@ -1775,6 +2362,21 @@ void Host::setName(const QString& newName)
     mTimerUnit.changeHostName(newName);
 }
 
+void Host::removeAllNonPersistentStopWatches()
+{
+    QMutableMapIterator<int, stopWatch*> itStopWatch(mStopWatchMap);
+    while (itStopWatch.hasNext()) {
+        itStopWatch.next();
+        auto pStopWatch = itStopWatch.value();
+        if (!pStopWatch || pStopWatch->persistent()) {
+            continue;
+        }
+
+        itStopWatch.remove();
+        delete pStopWatch;
+    }
+}
+
 void Host::updateProxySettings(QNetworkAccessManager* manager)
 {
     if (mUseProxy && !mProxyAddress.isEmpty() && mProxyPort != 0) {
@@ -1801,4 +2403,78 @@ std::unique_ptr<QNetworkProxy>& Host::getConnectionProxy()
     }
 
     return mpDownloaderProxy;
+}
+
+void Host::setDisplayFontSpacing(const qreal spacing)
+{
+    mDisplayFont.setLetterSpacing(QFont::AbsoluteSpacing, spacing);
+}
+
+void Host::setDisplayFontStyle(QFont::StyleStrategy s)
+{
+    mDisplayFont.setStyleStrategy(s);
+}
+
+void Host::setDisplayFontFixedPitch(bool enable)
+{
+    mDisplayFont.setFixedPitch(enable);
+}
+
+void Host::loadSecuredPassword()
+{
+    auto *job = new QKeychain::ReadPasswordJob(QStringLiteral("Mudlet profile"));
+    job->setAutoDelete(false);
+    job->setInsecureFallback(false);
+
+    job->setKey(getName());
+
+    connect(job, &QKeychain::ReadPasswordJob::finished, this, [=](QKeychain::Job* job) {
+        if (job->error()) {
+            const auto error = job->errorString();
+            if (error != QStringLiteral("Entry not found") && error != QStringLiteral("No match")) {
+                qDebug() << "Host::loadSecuredPassword ERROR: couldn't retrieve secure password for" << getName() << ", error is:" << error;
+            }
+        } else {
+            auto readJob = static_cast<QKeychain::ReadPasswordJob*>(job);
+            setPass(readJob->textData());
+        }
+
+        job->deleteLater();
+    });
+
+    job->start();
+}
+
+// Only needed for places outside of this class:
+void Host::updateAnsi16ColorsInTable()
+{
+    mLuaInterpreter.updateAnsi16ColorsInTable();
+}
+
+void Host::setPlayerRoomStyleDetails(const quint8 styleCode, const quint8 outerDiameter, const quint8 innerDiameter, const QColor& outerColor, const QColor& innerColor)
+{
+    QMutexLocker locker(& mLock);
+    // Now we have the exclusive lock on this class's protected members
+
+    mPlayerRoomStyle = styleCode;
+    mPlayerRoomOuterDiameterPercentage = outerDiameter;
+    mPlayerRoomInnerDiameterPercentage = innerDiameter;
+    mPlayerRoomOuterColor = outerColor;
+    mPlayerRoomInnerColor = innerColor;
+    // We have made the change to the protected aspects of this class so can unlock the mutex locker and proceed:
+    locker.unlock();
+}
+
+void Host::getPlayerRoomStyleDetails(quint8& styleCode, quint8& outerDiameter, quint8& innerDiameter, QColor& primaryColor, QColor& secondaryColor)
+{
+    QMutexLocker locker(& mLock);
+    // Now we have the exclusive lock on this class's protected members
+
+    styleCode = mPlayerRoomStyle;
+    outerDiameter = mPlayerRoomOuterDiameterPercentage;
+    innerDiameter = mPlayerRoomInnerDiameterPercentage;
+    primaryColor = mPlayerRoomOuterColor;
+    secondaryColor = mPlayerRoomInnerColor;
+    // We have accessed the protected aspects of this class so can unlock the mutex locker and proceed:
+    locker.unlock();
 }

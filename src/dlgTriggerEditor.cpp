@@ -172,15 +172,22 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     setStatusBar(statusBar);
     statusBar->show();
 
+    mpNonCodeWidgets = new QWidget(this);
+    auto *layoutColumn = new QVBoxLayout(mpNonCodeWidgets);
+    splitter_right->addWidget(mpNonCodeWidgets);
+
     // system message area
     mpSystemMessageArea = new dlgSystemMessageArea(this);
     mpSystemMessageArea->setObjectName(QStringLiteral("mpSystemMessageArea"));
-    splitter_right->addWidget(mpSystemMessageArea);
+    mpSystemMessageArea->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
+    // set the stretch factor of the message area to 0 and everything else to 1,
+    // so our errors box doesn't stretch to produce a grey area
+    layoutColumn->addWidget(mpSystemMessageArea, 0);
     connect(mpSystemMessageArea->messageAreaCloseButton, &QAbstractButton::clicked, mpSystemMessageArea, &QWidget::hide);
 
     // main areas
     mpTriggersMainArea = new dlgTriggersMainArea(this);
-    splitter_right->addWidget(mpTriggersMainArea);
+    layoutColumn->addWidget(mpTriggersMainArea, 1);
     connect(mpTriggersMainArea->pushButtonFgColor, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_colorizeTriggerSetFgColor);
     connect(mpTriggersMainArea->pushButtonBgColor, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_colorizeTriggerSetBgColor);
     connect(mpTriggersMainArea->pushButtonSound, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_soundTrigger);
@@ -188,24 +195,24 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     connect(mpTriggersMainArea->toolButton_clearSoundFile, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_clearSoundFile);
 
     mpTimersMainArea = new dlgTimersMainArea(this);
-    splitter_right->addWidget(mpTimersMainArea);
+    layoutColumn->addWidget(mpTimersMainArea, 1);
 
     mpAliasMainArea = new dlgAliasMainArea(this);
-    splitter_right->addWidget(mpAliasMainArea);
+    layoutColumn->addWidget(mpAliasMainArea, 1);
 
     mpActionsMainArea = new dlgActionMainArea(this);
-    splitter_right->addWidget(mpActionsMainArea);
+    layoutColumn->addWidget(mpActionsMainArea, 1);
     connect(mpActionsMainArea->checkBox_action_button_isPushDown, &QCheckBox::stateChanged, this, &dlgTriggerEditor::slot_toggle_isPushDownButton);
 
     mpKeysMainArea = new dlgKeysMainArea(this);
-    splitter_right->addWidget(mpKeysMainArea);
+    layoutColumn->addWidget(mpKeysMainArea, 1);
     connect(mpKeysMainArea->pushButton_key_grabKey, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_key_grab);
 
     mpVarsMainArea = new dlgVarsMainArea(this);
-    splitter_right->addWidget(mpVarsMainArea);
+    layoutColumn->addWidget(mpVarsMainArea, 1);
 
     mpScriptsMainArea = new dlgScriptsMainArea(this);
-    splitter_right->addWidget(mpScriptsMainArea);
+    layoutColumn->addWidget(mpScriptsMainArea, 1);
 
     mIsScriptsMainAreaEditHandler = false;
     mpScriptsMainAreaEditHandlerItem = nullptr;
@@ -268,32 +275,19 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     // option areas
     mpErrorConsole = new TConsole(mpHost, TConsole::ErrorConsole, this);
     mpErrorConsole->setWrapAt(100);
-    mpErrorConsole->mUpperPane->slot_toggleTimeStamps();
+    mpErrorConsole->mUpperPane->slot_toggleTimeStamps(true);
+    mpErrorConsole->mLowerPane->slot_toggleTimeStamps(true);
     mpErrorConsole->print(tr("*** starting new session ***\n"));
     mpErrorConsole->setMinimumHeight(100);
     mpErrorConsole->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
     splitter_right->addWidget(mpErrorConsole);
 
-    splitter_right->setStretchFactor(0, 0); // mpSystemMessageArea
+    splitter_right->setStretchFactor(0, 1); // mpNonCodeWidgets
     splitter_right->setCollapsible(0, false);
-    splitter_right->setStretchFactor(1, 1); // mpTriggersMainArea
+    splitter_right->setStretchFactor(1, 1); // mpSourceEditorArea
     splitter_right->setCollapsible(1, false);
-    splitter_right->setStretchFactor(2, 1); // mpTimersMainArea
+    splitter_right->setStretchFactor(2, 1); // mpErrorConsole
     splitter_right->setCollapsible(2, false);
-    splitter_right->setStretchFactor(3, 1); // mpAliasMainArea
-    splitter_right->setCollapsible(3, false);
-    splitter_right->setStretchFactor(4, 1); // mpActionsMainArea
-    splitter_right->setCollapsible(4, false);
-    splitter_right->setStretchFactor(5, 1); // mpKeysMainArea
-    splitter_right->setCollapsible(5, false);
-    splitter_right->setStretchFactor(6, 1); // mpVarsMainArea
-    splitter_right->setCollapsible(6, false);
-    splitter_right->setStretchFactor(7, 1); // mpScriptsMainArea
-    splitter_right->setCollapsible(7, false);
-    splitter_right->setStretchFactor(8, 3); // mpSourceEditorArea
-    splitter_right->setCollapsible(8, false);
-    splitter_right->setStretchFactor(9, 1); // mpErrorConsole
-    splitter_right->setCollapsible(9, false);
 
     mpErrorConsole->hide();
 
@@ -565,7 +559,7 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     auto config = mpSourceEditorEdbee->config();
     config->beginChanges();
     config->setThemeName(mpHost->mEditorTheme);
-    config->setFont(mpHost->mDisplayFont);
+    config->setFont(mpHost->getDisplayFont());
     config->setShowWhitespaceMode((mudlet::self()->mEditorTextOptions & QTextOption::ShowTabsAndSpaces)
                                   ? edbee::TextEditorConfig::ShowWhitespaces
                                   : edbee::TextEditorConfig::HideWhitespaces);
@@ -6554,7 +6548,7 @@ void dlgTriggerEditor::saveOpenChanges()
     case EditorViewType::cmVarsView:
         saveVar();
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::timerEvent(QTimerEvent *event)
@@ -6905,7 +6899,7 @@ void dlgTriggerEditor::slot_save_edit()
         break;
     default:
         qWarning() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 
     // There was a mpHost->serialize() call here, but that code was
     // "short-circuited" and returned without doing anything;
@@ -6939,7 +6933,7 @@ void dlgTriggerEditor::slot_add_new()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_add_new_folder()
@@ -6970,7 +6964,7 @@ void dlgTriggerEditor::slot_add_new_folder()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_toggle_active()
@@ -6997,7 +6991,7 @@ void dlgTriggerEditor::slot_toggle_active()
 
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_delete_item()
@@ -7026,7 +7020,7 @@ void dlgTriggerEditor::slot_delete_item()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_item_selected_save(QTreeWidgetItem* pItem)
@@ -7057,7 +7051,7 @@ void dlgTriggerEditor::slot_item_selected_save(QTreeWidgetItem* pItem)
     case EditorViewType::cmVarsView:
         saveVar();
         break;
-    };
+    }
 }
 
 // Should the functionality change in this method be sure to review the code
@@ -7246,7 +7240,7 @@ void dlgTriggerEditor::slot_next_section()
         break;
     case EditorViewType::cmUnknownView:
         return;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_previous_section()
@@ -7372,7 +7366,7 @@ void dlgTriggerEditor::slot_previous_section()
         break;
     case EditorViewType::cmUnknownView:
         return;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_activateMainWindow()
@@ -7707,7 +7701,7 @@ void dlgTriggerEditor::slot_export()
     case EditorViewType::cmKeysView:
         exportKey(fileName);
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_copy_xml()
@@ -7731,7 +7725,7 @@ void dlgTriggerEditor::slot_copy_xml()
     case EditorViewType::cmKeysView:
         exportKeyToClipboard();
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_paste_xml()
@@ -7759,7 +7753,7 @@ void dlgTriggerEditor::slot_paste_xml()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     std::tie(importedItemType, importedItemID) = reader.importFromClipboard();
 
@@ -7915,7 +7909,7 @@ void dlgTriggerEditor::slot_import()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     QString fileName = QFileDialog::getOpenFileName(this, tr("Import Mudlet Package"), QDir::currentPath());
     if (fileName.isEmpty()) {
@@ -8039,7 +8033,7 @@ void dlgTriggerEditor::runScheduledCleanReset()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     treeWidget_triggers->clear();
     treeWidget_aliases->clear();
@@ -8459,12 +8453,13 @@ void dlgTriggerEditor::clearDocument(edbee::TextEditorWidget* ew, const QString&
     auto config = mpSourceEditorEdbee->config();
     config->beginChanges();
     config->setThemeName(mpHost->mEditorTheme);
-    config->setFont(mpHost->mDisplayFont);
+    config->setFont(mpHost->getDisplayFont());
     config->setShowWhitespaceMode((mudlet::self()->mEditorTextOptions & QTextOption::ShowTabsAndSpaces)
                                   ? edbee::TextEditorConfig::ShowWhitespaces
                                   : edbee::TextEditorConfig::HideWhitespaces);
     config->setUseLineSeparator(mudlet::self()->mEditorTextOptions & QTextOption::ShowLineAndParagraphSeparators);
     config->setSmartTab(true);
+    config->setUseTabChar(false); // when you press Enter for a newline, pad with spaces and not tabs
     config->setCaretBlinkRate(200);
     config->setIndentSize(2);
     config->setCaretWidth(1);
@@ -8487,7 +8482,7 @@ void dlgTriggerEditor::setThemeAndOtherSettings(const QString& theme)
         auto localConfig = mpSourceEditorEdbee->config();
         localConfig->beginChanges();
         localConfig->setThemeName(theme);
-        localConfig->setFont(mpHost->mDisplayFont);
+        localConfig->setFont(mpHost->getDisplayFont());
         localConfig->setShowWhitespaceMode((mudlet::self()->mEditorTextOptions & QTextOption::ShowTabsAndSpaces)
                                            ? edbee::TextEditorConfig::ShowWhitespaces
                                            : edbee::TextEditorConfig::HideWhitespaces);

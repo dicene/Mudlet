@@ -1,6 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
- *   Copyright (C) 2014-2019 by Stephen Lyons - slysven@virginmedia.com    *
+ *   Copyright (C) 2014-2020 by Stephen Lyons - slysven@virginmedia.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
  *   Copyright (C) 2016 by Ian Adkins - ieadkins@gmail.com                 *
  *                                                                         *
@@ -64,7 +64,7 @@ TConsole::TConsole(Host* pH, ConsoleType type, QWidget* parent)
 , mCommandFgColor(QColor(213, 195, 0))
 , mConsoleName("main")
 , mDisplayFontName("Bitstream Vera Sans Mono")
-, mDisplayFontSize(10)
+, mDisplayFontSize(14)
 , mDisplayFont(QFont(mDisplayFontName, mDisplayFontSize, QFont::Normal))
 , mFgColor(Qt::black)
 , mIndentCount(0)
@@ -366,7 +366,8 @@ TConsole::TConsole(Host* pH, ConsoleType type, QWidget* parent)
     timeStampButton->setToolTip(QStringLiteral("<html><head/><body><p>%1</p></body></html>").arg(
         tr("Show Time Stamps.")));
     timeStampButton->setIcon(QIcon(QStringLiteral(":/icons/dialog-information.png")));
-    connect(timeStampButton, &QAbstractButton::pressed, mUpperPane, &TTextEdit::slot_toggleTimeStamps);
+    connect(timeStampButton, &QAbstractButton::toggled, mUpperPane, &TTextEdit::slot_toggleTimeStamps);
+    connect(timeStampButton, &QAbstractButton::toggled, mLowerPane, &TTextEdit::slot_toggleTimeStamps);
 
     auto replayButton = new QToolButton;
     replayButton->setCheckable(true);
@@ -408,7 +409,6 @@ TConsole::TConsole(Host* pH, ConsoleType type, QWidget* parent)
     basePalette.setColor(QPalette::Base, QColor(Qt::white));
     networkLatency->setPalette(basePalette);
     networkLatency->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-
 
     QFont latencyFont = QFont("Bitstream Vera Sans Mono", 10, QFont::Normal);
     int width;
@@ -569,6 +569,14 @@ TConsole::TConsole(Host* pH, ConsoleType type, QWidget* parent)
         // absence of files for the first run in a new profile or from an older
         // Mudlet version:
         setProfileSpellDictionary();
+    }
+
+    // error and debug consoles inherit font of the main console
+    if (mType & (ErrorConsole | CentralDebugConsole)) {
+        mDisplayFont = mpHost->getDisplayFont();
+        mDisplayFontName = mDisplayFont.family();
+        mDisplayFontSize = mDisplayFont.pointSize();
+        refreshMiniConsole();
     }
 }
 
@@ -779,6 +787,9 @@ void TConsole::closeEvent(QCloseEvent* event)
             QFile file_map(filename_map);
             if (file_map.open(QIODevice::WriteOnly)) {
                 QDataStream out(&file_map);
+                if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+                    out.setVersion(mudlet::scmQDataStreamFormat_5_12);
+                }
                 mpHost->mpMap->serialize(out);
                 file_map.close();
             }
@@ -815,6 +826,9 @@ void TConsole::closeEvent(QCloseEvent* event)
                 QFile file_map(filename_map);
                 if (file_map.open(QIODevice::WriteOnly)) {
                     QDataStream out(&file_map);
+                    if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+                        out.setVersion(mudlet::scmQDataStreamFormat_5_12);
+                    }
                     mpHost->mpMap->serialize(out);
                     file_map.close();
                 }
@@ -1082,6 +1096,9 @@ void TConsole::slot_toggleReplayRecording()
         }
         mReplayFile.setFileName(mLogFileName);
         mReplayFile.open(QIODevice::WriteOnly);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            mReplayStream.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         mReplayStream.setDevice(&mReplayFile);
         mpHost->mTelnet.recordReplay();
         QString message = QString("Replay recording has started. File: ") + mReplayFile.fileName() + "\n";
@@ -1119,11 +1136,11 @@ void TConsole::changeColors()
         const QString t = "123";
         p.drawText(r, 1, t, &r2);
         // N/U:        int mFontHeight = QFontMetrics( mDisplayFont ).height();
-        int mFontWidth = QFontMetrics(mDisplayFont).width(QChar('W'));
+        int mFontWidth = QFontMetrics(mDisplayFont).averageCharWidth();
         auto letterSpacing = static_cast<qreal>(mFontWidth - static_cast<qreal>(r2.width() / t.size()));
         mUpperPane->mLetterSpacing = letterSpacing;
         mLowerPane->mLetterSpacing = letterSpacing;
-        mpHost->mDisplayFont.setLetterSpacing(QFont::AbsoluteSpacing, letterSpacing);
+        mpHost->setDisplayFontSpacing(letterSpacing);
         mDisplayFont.setLetterSpacing(QFont::AbsoluteSpacing, mUpperPane->mLetterSpacing);
 #endif
         mDisplayFont.setFixedPitch(true);
@@ -1148,32 +1165,32 @@ void TConsole::changeColors()
             mpCommandLine->mRegularPalette = pal;
         }
         if (mpHost->mNoAntiAlias) {
-            mpHost->mDisplayFont.setStyleStrategy(QFont::NoAntialias);
+            mpHost->setDisplayFontStyle(QFont::NoAntialias);
         } else {
-            mpHost->mDisplayFont.setStyleStrategy(QFont::StyleStrategy(QFont::PreferAntialias | QFont::PreferQuality));
+            mpHost->setDisplayFontStyle(QFont::StyleStrategy(QFont::PreferAntialias | QFont::PreferQuality));
         }
-        mpHost->mDisplayFont.setFixedPitch(true);
+        mpHost->setDisplayFontFixedPitch(true);
         mDisplayFont.setFixedPitch(true);
 #if defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
         QPixmap pixmap = QPixmap(2000, 600);
         QPainter p(&pixmap);
-        QFont _font = mpHost->mDisplayFont;
+        QFont _font = mpHost->getDisplayFont();
         _font.setLetterSpacing(QFont::AbsoluteSpacing, 0);
         p.setFont(_font);
         const QRectF r = QRectF(0, 0, 2000, 600);
         QRectF r2;
         const QString t = "123";
         p.drawText(r, 1, t, &r2);
-        // N/U:        int mFontHeight = QFontMetrics( mpHost->mDisplayFont ).height();
-        int mFontWidth = QFontMetrics(mpHost->mDisplayFont).width(QChar('W'));
+        // N/U:        int mFontHeight = QFontMetrics( mpHost->getDisplayFont() ).height();
+        int mFontWidth = QFontMetrics(mpHost->getDisplayFont()).averageCharWidth();
         auto letterSpacing = static_cast<qreal>(mFontWidth - static_cast<qreal>(r2.width() / t.size()));
         mUpperPane->mLetterSpacing = letterSpacing;
         mLowerPane->mLetterSpacing = letterSpacing;
-        mpHost->mDisplayFont.setLetterSpacing(QFont::AbsoluteSpacing, letterSpacing);
+        mpHost->setDisplayFontSpacing(letterSpacing);
         mDisplayFont.setLetterSpacing(QFont::AbsoluteSpacing, mUpperPane->mLetterSpacing);
 #endif
-        mUpperPane->setFont(mpHost->mDisplayFont);
-        mLowerPane->setFont(mpHost->mDisplayFont);
+        mUpperPane->setFont(mpHost->getDisplayFont());
+        mLowerPane->setFont(mpHost->getDisplayFont());
         QPalette palette;
         palette.setColor(QPalette::Text, mpHost->mFgColor);
         palette.setColor(QPalette::Highlight, QColor(55, 55, 255));
@@ -1185,7 +1202,7 @@ void TConsole::changeColors()
         mCommandFgColor = mpHost->mCommandFgColor;
         mCommandBgColor = mpHost->mCommandBgColor;
         if (mpCommandLine) {
-            mpCommandLine->setFont(mpHost->mDisplayFont);
+            mpCommandLine->setFont(mpHost->getDisplayFont());
         }
         mFormatCurrent.setColors(mpHost->mFgColor, mpHost->mBgColor);
     } else {
@@ -1535,6 +1552,9 @@ bool TConsole::saveMap(const QString& location, int saveVersion)
     QFile file_map(filename_map);
     if (file_map.open(QIODevice::WriteOnly)) {
         QDataStream out(&file_map);
+        if (mudlet::scmRunTimeQtVersion >= QVersionNumber(5, 13, 0)) {
+            out.setVersion(mudlet::scmQDataStreamFormat_5_12);
+        }
         mpHost->mpMap->serialize(out, saveVersion);
         file_map.close();
     } else {
@@ -2055,6 +2075,8 @@ std::tuple<bool, QString, int, int> TConsole::getSelection()
 void TConsole::setLink(const QStringList& linkFunction, const QStringList& linkHint)
 {
     buffer.applyLink(P_begin, P_end, linkFunction, linkHint);
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 // Set or Reset ALL the specified (but not others)
@@ -2062,28 +2084,38 @@ void TConsole::setDisplayAttributes(const TChar::AttributeFlags attributes, cons
 {
     mFormatCurrent.setAllDisplayAttributes((mFormatCurrent.allDisplayAttributes() & ~(attributes)) | (b ? attributes : TChar::None));
     buffer.applyAttribute(P_begin, P_end, attributes, b);
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 void TConsole::setFgColor(int r, int g, int b)
 {
     setFgColor(QColor(r, g, b));
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 void TConsole::setBgColor(int r, int g, int b)
 {
     setBgColor(QColor(r, g, b));
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 void TConsole::setBgColor(const QColor& newColor)
 {
     mFormatCurrent.setBackground(newColor);
     buffer.applyBgColor(P_begin, P_end, newColor);
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 void TConsole::setFgColor(const QColor& newColor)
 {
     mFormatCurrent.setForeground(newColor);
     buffer.applyFgColor(P_begin, P_end, newColor);
+    mUpperPane->forceUpdate();
+    mLowerPane->forceUpdate();
 }
 
 void TConsole::setScrollBarVisible(bool isVisible)
@@ -2206,7 +2238,7 @@ TLabel* TConsole::createLabel(const QString& name, int x, int y, int width, int 
 {
     auto pL = mLabelMap.value(name);
     if (!pL) {
-        pL = new TLabel(mpMainFrame);
+        pL = new TLabel(mpHost, mpMainFrame);
         mLabelMap[name] = pL;
         pL->setObjectName(name);
         pL->setAutoFillBackground(fillBackground);
@@ -2221,9 +2253,44 @@ TLabel* TConsole::createLabel(const QString& name, int x, int y, int width, int 
     }
 }
 
+std::pair<bool, QString> TConsole::deleteLabel(const QString& name)
+{
+    if (name.isEmpty()) {
+        return {false, QLatin1String("a label cannot have an empty string as its name")};
+    }
+
+    auto pL = mLabelMap.take(name);
+    if (pL) {
+        // Using deleteLater() rather than delete as it seems a safer option
+        // given that this item is likely to be linked to some events and
+        // suchlike:
+        pL->deleteLater();
+
+        // It remains to be seen if the label has "gone" as a result of the
+        // above by the time the Lua subsystem processes the following:
+        TEvent mudletEvent{};
+        mudletEvent.mArgumentList.append(QLatin1String("sysLabelDeleted"));
+        mudletEvent.mArgumentTypeList.append(ARGUMENT_TYPE_STRING);
+        mudletEvent.mArgumentList.append(name);
+        mudletEvent.mArgumentTypeList.append(ARGUMENT_TYPE_STRING);
+        mpHost->raiseEvent(mudletEvent);
+        return {true, QString()};
+    }
+
+    // Message is of the form needed for a Lua API function call run-time error
+    return {false, QStringLiteral("label name \"%1\" not found").arg(name)};
+}
+
 void TConsole::createMapper(int x, int y, int width, int height)
 {
     if (!mpMapper) {
+        // Arrange for TMap member values to be copied from the Host masters so they
+        // are in place when the 2D mapper is created:
+        mpHost->getPlayerRoomStyleDetails(mpHost->mpMap->mPlayerRoomStyle,
+                                          mpHost->mpMap->mPlayerRoomOuterDiameterPercentage,
+                                          mpHost->mpMap->mPlayerRoomInnerDiameterPercentage,
+                                          mpHost->mpMap->mPlayerRoomOuterColor,
+                                          mpHost->mpMap->mPlayerRoomInnerColor);
         mpMapper = new dlgMapper(mpMainFrame, mpHost, mpHost->mpMap.data());
 #if defined(INCLUDE_3DMAPPER)
         mpHost->mpMap->mpM = mpMapper->glWidget;
@@ -2266,23 +2333,6 @@ void TConsole::createMapper(int x, int y, int width, int height)
 #else
     mpMapper->show();
 #endif
-}
-
-bool TConsole::createButton(const QString& name, int x, int y, int width, int height, bool fillBackground)
-{
-    if (!mLabelMap.contains(name)) {
-        auto pC = new TLabel(mpMainFrame);
-        mLabelMap[name] = pC;
-        pC->setObjectName(name);
-        pC->setAutoFillBackground(fillBackground);
-        pC->resize(width, height);
-        pC->setContentsMargins(0, 0, 0, 0);
-        pC->move(x, y);
-        pC->show();
-        return true;
-    } else {
-        return false;
-    }
 }
 
 bool TConsole::setBackgroundImage(const QString& name, const QString& path)
@@ -2825,4 +2875,3 @@ void TConsole::setProfileName(const QString& newName)
         pC->setProfileName(newName);
     }
 }
-
