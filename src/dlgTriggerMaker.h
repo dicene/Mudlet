@@ -1,10 +1,10 @@
-#ifndef MUDLET_DLGNOTEPAD_H
-#define MUDLET_DLGNOTEPAD_H
+#ifndef MUDLET_DLGTRIGGERMAKER_H
+#define MUDLET_DLGTRIGGERMAKER_H
 
 /***************************************************************************
  *   Copyright (C) 2008-2009 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2018 by Stephen Lyons - slysven@virginmedia.com         *
+ *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -24,26 +24,29 @@
 
 
 #include "pre_guard.h"
-#include "ui_notes_editor.h"
+#include "ui_trigger_maker.h"
 #include <QPointer>
 #include "post_guard.h"
 
 class Host;
 
-class dlgNotepad : public QMainWindow, public Ui::notes_editor
+class dlgTriggerMaker : public QMainWindow, public Ui::trigger_maker
 {
     Q_OBJECT
 
 public:
-    Q_DISABLE_COPY(dlgNotepad)
-    dlgNotepad(Host*);
-    ~dlgNotepad();
+    Q_DISABLE_COPY(dlgTriggerMaker)
+    dlgTriggerMaker(Host*);
+    ~dlgTriggerMaker();
+    void updateList();
 
-    void save();
-    void restore();
+private slots:
+    void on_createTrigger_pushButton_clicked();
+
+    void on_cancel_pushButton_clicked();
 
 private:
     QPointer<Host> mpHost;
 };
 
-#endif // MUDLET_DLGNOTEPAD_H
+#endif // MUDLET_DLGTRIGGERMAKER_H

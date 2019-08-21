@@ -47,6 +47,7 @@
 #include "dlgPackageExporter.h"
 #include "dlgProfilePreferences.h"
 #include "dlgTriggerEditor.h"
+#include "dlgTriggerMaker.h"
 #include "VarUnit.h"
 
 #include "pre_guard.h"
@@ -434,7 +435,9 @@ mudlet::mudlet()
     connect(mpActionVariables.data(), &QAction::triggered, this, &mudlet::show_variable_dialog);
     connect(mpActionButtons.data(), &QAction::triggered, this, &mudlet::show_action_dialog);
     connect(mpActionOptions.data(), &QAction::triggered, this, &mudlet::slot_show_options_dialog);
-    connect(mpActionAbout.data(), &QAction::triggered, this, &mudlet::slot_show_about_dialog);
+    //connect(mpActionAbout.data(), &QAction::triggered, this, &mudlet::slot_show_about_dialog);
+    connect(mpActionAbout.data(), &QAction::triggered, this, &mudlet::slot_show_trigger_maker);
+
     connect(mpActionMultiView.data(), &QAction::triggered, this, &mudlet::slot_multi_view);
     connect(mpActionReconnect.data(), &QAction::triggered, this, &mudlet::slot_reconnect);
     connect(mpActionDisconnect.data(), &QAction::triggered, this, &mudlet::slot_disconnect);
@@ -478,7 +481,8 @@ mudlet::mudlet()
     connect(dactionScriptEditor, &QAction::triggered, this, &mudlet::show_editor_dialog);
     connect(dactionShowMap, &QAction::triggered, this, &mudlet::slot_mapper);
     connect(dactionOptions, &QAction::triggered, this, &mudlet::slot_show_options_dialog);
-    connect(dactionAbout, &QAction::triggered, this, &mudlet::slot_show_about_dialog);
+    //connect(dactionAbout, &QAction::triggered, this, &mudlet::slot_show_about_dialog);
+    connect(dactionAbout, &QAction::triggered, this, &mudlet::slot_show_trigger_maker);
 
     // we historically use Alt on Windows and Linux, but that is uncomfortable on macOS
 #if defined(Q_OS_MACOS)
@@ -3430,6 +3434,25 @@ void mudlet::slot_show_about_dialog()
 
     mpAboutDlg->raise();
     mpAboutDlg->show();
+}
+
+void mudlet::slot_show_trigger_maker()
+{
+    Host* pHost = getActiveHost();
+    if (!pHost) {
+        return;
+    }
+    dlgTriggerMaker* pTriggerMaker = pHost->mpTriggerMaker;
+    if (!pTriggerMaker) {
+        pHost->mpTriggerMaker = new dlgTriggerMaker(pHost);
+        pTriggerMaker = pHost->mpTriggerMaker;
+
+        pTriggerMaker->setWindowTitle(tr("%1 - Trigger Maker").arg(pHost->getName()));
+        pTriggerMaker->setWindowIcon(QIcon(QStringLiteral(":/icons/mudlet_notepad.png")));
+    }
+    pTriggerMaker->updateList();
+    pTriggerMaker->raise();
+    pTriggerMaker->show();
 }
 
 void mudlet::slot_notes()

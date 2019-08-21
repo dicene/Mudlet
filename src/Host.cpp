@@ -81,6 +81,7 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mpEditorDialog(nullptr)
 , mpMap(new TMap(this, hostname))
 , mpNotePad(nullptr)
+, mpTriggerMaker(nullptr)
 , mPrintCommand(true)
 , mIsRemoteEchoingActive(false)
 , mIsCurrentLogFileInHtmlFormat(false)

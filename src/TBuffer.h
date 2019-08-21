@@ -197,6 +197,7 @@ public:
     std::deque<std::deque<TChar>> buffer;
     QStringList timeBuffer;
     QStringList lineBuffer;
+    QStringList rawBuffer;
     QList<bool> promptBuffer;
     QList<bool> dirty;
     QMap<int, QStringList> mLinkStore;
