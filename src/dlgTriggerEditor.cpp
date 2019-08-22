@@ -3170,6 +3170,16 @@ void dlgTriggerEditor::children_icon_key(QTreeWidgetItem* pWidgetItemParent)
 }
 
 
+/*TTrigger dlgTriggerEdit::addNewTrigger()
+{
+
+}*/
+
+/*TTrigger dlgTriggerEditor::getCurrentTrigger()
+{
+    return mpCurrentTriggerItem;
+}*/
+
 void dlgTriggerEditor::addTrigger(bool isFolder)
 {
     saveTrigger();

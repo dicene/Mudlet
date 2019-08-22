@@ -68,9 +68,11 @@ void dlgTriggerMaker::updateList()
             lastLines_listWidget->addItem(QString("%1").arg(rawBuff[i]));
         }
         //lastLines_listWidget->addItem(QString("rawBuff[0] = \"%1\"").arg(rawBuff[0]));
-        if (lastLines_listWidget->item(0)) {
-            lastLines_listWidget->item(0)->setSelected(true);
+        if (lastLines_listWidget->count() > 0) {
+            lastLines_listWidget->item(lastLines_listWidget->count() - 1)->setSelected(true);
         }
+        lastLines_listWidget->setFocus();
+        activateWindow();
     }
 }
 
@@ -83,7 +85,9 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         auto trigEdit = mpHost->mpEditorDialog;
         QString line = lastLines_listWidget->selectedItems()[0]->text();
         //mpHost->*CreateICW()
-        pConsole->echo(QString("Selected line: %1").arg(line));
+        pConsole->echo(QString("Selected line: %1\n").arg(line));
+        //trigEdit->addTrigger(false);
+        //trigEdit->treeWidget_triggers
 
         //TTrigger* pT;
         QStringList lineList;
@@ -157,7 +161,7 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
             }
         } else {*/
         //insert a new root item
-        ROOT_TRIGGER:
+        /*ROOT_TRIGGER:
             pT = new TTrigger(name, lineList, propertyList, false, mpHost);
             //pNewItem = new QTreeWidgetItem(mpTriggerBaseItem, nameL);
             //treeWidget_triggers->insertTopLevelItem(0, pNewItem);
@@ -179,6 +183,8 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         pT->setConditionLineDelta(0);
         pT->registerTrigger();
         int childID = pT->getID();
+
+        */
         /*pNewItem->setData(0, Qt::UserRole, childID);
         QIcon icon;
         if (isFolder) {
@@ -210,6 +216,8 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         showInfo(msgInfoAddTrigger);
         slot_trigger_selected(treeWidget_triggers->currentItem());
         */
+        TLuaInterpreter* pLuaInterpreter = mpHost->getLuaInterpreter();
+        pLuaInterpreter->startPermSubstringTrigger(name, QString(""), lineList, script);
         if (mpHost->mpEditorDialog)
         {
             mpHost->mpEditorDialog->slot_show_triggers();
