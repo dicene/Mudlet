@@ -257,6 +257,7 @@ public:
     QFont mCommandLineFont;
     QString mCommandSeparator;
     bool mEnableGMCP;
+    bool mEnableMSSP;
     bool mEnableMSDP;
     bool mServerMXPenabled;
     QTextStream mErrorLogStream;
