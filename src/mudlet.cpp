@@ -2085,6 +2085,8 @@ bool mudlet::setTextFormat(Host* pHost, const QString& name, const QColor& bgCol
     auto pC = pHost->mpConsole->mSubConsoleMap.value(name);
     if (pC) {
         pC->mFormatCurrent.setTextFormat(fgColor, bgColor, attributes);
+        pC->mUpperPane->forceUpdate();
+        pC->mLowerPane->forceUpdate();
         return true;
     } else {
         return false;
@@ -2102,6 +2104,8 @@ bool mudlet::setDisplayAttributes(Host* pHost, const QString& name, const TChar:
         // Set or reset all the specified attributes (but leave others unchanged)
         pC->mFormatCurrent.setAllDisplayAttributes((pC->mFormatCurrent.allDisplayAttributes() &~(attributes)) | (state ? attributes : TChar::None));
         pC->buffer.applyAttribute(pC->P_begin, pC->P_end, attributes, state);
+        pC->mUpperPane->forceUpdate();
+        pC->mLowerPane->forceUpdate();
         return true;
     } else {
         return false;
@@ -2568,6 +2572,8 @@ void mudlet::setLink(Host* pHost, const QString& name, QStringList& linkFunction
     auto pC = pHost->mpConsole->mSubConsoleMap.value(name);
     if (pC) {
         pC->setLink(linkFunction, linkHint);
+        pC->mUpperPane->forceUpdate();
+        pC->mLowerPane->forceUpdate();
     }
 }
 
@@ -2580,6 +2586,8 @@ void mudlet::setFgColor(Host* pHost, const QString& name, int r, int g, int b)
     auto pC = pHost->mpConsole->mSubConsoleMap.value(name);
     if (pC) {
         pC->setFgColor(r, g, b);
+        pC->mUpperPane->forceUpdate();
+        pC->mLowerPane->forceUpdate();
     }
 }
 
@@ -2592,6 +2600,8 @@ void mudlet::setBgColor(Host* pHost, const QString& name, int r, int g, int b)
     auto pC = pHost->mpConsole->mSubConsoleMap.value(name);
     if (pC) {
         pC->setBgColor(r, g, b);
+        pC->mUpperPane->forceUpdate();
+        pC->mLowerPane->forceUpdate();
     }
 }
 
