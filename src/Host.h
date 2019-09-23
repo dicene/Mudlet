@@ -554,6 +554,7 @@ private:
     void processGMCPDiscordStatus(const QJsonObject& discordInfo);
     void processGMCPDiscordInfo(const QJsonObject& discordInfo);
     void updateModuleZips() const;
+    void updateConsolesFont();
     void loadSecuredPassword();
 };
 
