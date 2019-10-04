@@ -190,6 +190,11 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 {
     // mLogStatus = mudlet::self()->mAutolog;
     mLuaInterface.reset(new LuaInterface(this));
+
+    // Copy across the details needed for the "color_table":
+    mLuaInterpreter.updateAnsi16ColorsInTable();
+    mLuaInterpreter.updateExtendedAnsiColorsInTable();
+
     QString directoryLogFile = mudlet::getMudletPath(mudlet::profileDataItemPath, mHostName, QStringLiteral("log"));
     QString logFileName = QStringLiteral("%1/errors.txt").arg(directoryLogFile);
     QDir dirLogFile;
@@ -420,6 +425,10 @@ void Host::resetProfile_phase2()
     mTimerUnit.reenableAllTriggers();
     mTriggerUnit.reenableAllTriggers();
     mKeyUnit.reenableAllTriggers();
+
+    // Have to recopy the values into the Lua "color_table"
+    mLuaInterpreter.updateAnsi16ColorsInTable();
+    mLuaInterpreter.updateExtendedAnsiColorsInTable();
 
     TEvent event {};
     event.mArgumentList.append(QLatin1String("sysLoadEvent"));
@@ -1895,4 +1904,10 @@ void Host::loadSecuredPassword()
     });
 
     job->start();
+}
+
+// Only needed for places outside of this class:
+void Host::updateAnsi16ColorsInTable()
+{
+    mLuaInterpreter.updateAnsi16ColorsInTable();
 }
