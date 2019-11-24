@@ -1413,7 +1413,7 @@ void Host::setWideAmbiguousEAsianGlyphs(const Qt::CheckState state)
             mWideAmbigousWidthGlyphs = (state == Qt::Checked);
             localState = (state == Qt::Checked);
             needToEmit = true;
-        };
+        }
 
     }
 

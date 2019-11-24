@@ -6548,7 +6548,7 @@ void dlgTriggerEditor::saveOpenChanges()
     case EditorViewType::cmVarsView:
         saveVar();
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::timerEvent(QTimerEvent *event)
@@ -6899,7 +6899,7 @@ void dlgTriggerEditor::slot_save_edit()
         break;
     default:
         qWarning() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 
     // There was a mpHost->serialize() call here, but that code was
     // "short-circuited" and returned without doing anything;
@@ -6933,7 +6933,7 @@ void dlgTriggerEditor::slot_add_new()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_add_new_folder()
@@ -6964,7 +6964,7 @@ void dlgTriggerEditor::slot_add_new_folder()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_toggle_active()
@@ -6991,7 +6991,7 @@ void dlgTriggerEditor::slot_toggle_active()
 
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_delete_item()
@@ -7020,7 +7020,7 @@ void dlgTriggerEditor::slot_delete_item()
         break;
     default:
         qDebug() << "ERROR: dlgTriggerEditor::slot_save_edit() undefined view";
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_item_selected_save(QTreeWidgetItem* pItem)
@@ -7051,7 +7051,7 @@ void dlgTriggerEditor::slot_item_selected_save(QTreeWidgetItem* pItem)
     case EditorViewType::cmVarsView:
         saveVar();
         break;
-    };
+    }
 }
 
 // Should the functionality change in this method be sure to review the code
@@ -7240,7 +7240,7 @@ void dlgTriggerEditor::slot_next_section()
         break;
     case EditorViewType::cmUnknownView:
         return;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_previous_section()
@@ -7366,7 +7366,7 @@ void dlgTriggerEditor::slot_previous_section()
         break;
     case EditorViewType::cmUnknownView:
         return;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_activateMainWindow()
@@ -7701,7 +7701,7 @@ void dlgTriggerEditor::slot_export()
     case EditorViewType::cmKeysView:
         exportKey(fileName);
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_copy_xml()
@@ -7725,7 +7725,7 @@ void dlgTriggerEditor::slot_copy_xml()
     case EditorViewType::cmKeysView:
         exportKeyToClipboard();
         break;
-    };
+    }
 }
 
 void dlgTriggerEditor::slot_paste_xml()
@@ -7753,7 +7753,7 @@ void dlgTriggerEditor::slot_paste_xml()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     std::tie(importedItemType, importedItemID) = reader.importFromClipboard();
 
@@ -7909,7 +7909,7 @@ void dlgTriggerEditor::slot_import()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     QString fileName = QFileDialog::getOpenFileName(this, tr("Import Mudlet Package"), QDir::currentPath());
     if (fileName.isEmpty()) {
@@ -8033,7 +8033,7 @@ void dlgTriggerEditor::runScheduledCleanReset()
     case EditorViewType::cmKeysView:
         saveKey();
         break;
-    };
+    }
 
     treeWidget_triggers->clear();
     treeWidget_aliases->clear();
