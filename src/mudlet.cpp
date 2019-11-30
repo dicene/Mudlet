@@ -3878,6 +3878,7 @@ void mudlet::slot_connection_dlg_finished(const QString& profile, bool connect)
     pHost->mLuaInterpreter.loadGlobal();
     hideMudletsVariables(pHost);
 
+    pHost->mBlockStopWatchCreation = false;
     pHost->getScriptUnit()->compileAll();
     pHost->mIsProfileLoadingSequence = false;
 
