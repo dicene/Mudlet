@@ -499,6 +499,7 @@ SOURCES += \
     TLabel.cpp \
     TLuaInterpreter.cpp \
     TMap.cpp \
+    TMedia.cpp \
     TriggerUnit.cpp \
     TRoom.cpp \
     TRoomDB.cpp \
@@ -574,6 +575,7 @@ HEADERS += \
     TLabel.h \
     TLuaInterpreter.h \
     TMap.h \
+    TMedia.h \
     TMatchState.h \
     Tree.h \
     TriggerUnit.h \
