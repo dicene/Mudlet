@@ -843,6 +843,7 @@ void mudlet::loadDictionaryLanguageMap()
                                   {QStringLiteral("sw"), tr("Swahili")},
                                   {QStringLiteral("sw_ke"), tr("Swahili (Kenya)")},
                                   {QStringLiteral("sw_tz"), tr("Swahili (Tanzania)")},
+                                  {QStringLiteral("tr_TR"), tr("Turkish")},
                                   {QStringLiteral("te"), tr("Telugu")},
                                   {QStringLiteral("te_in"), tr("Telugu (India)")},
                                   {QStringLiteral("th"), tr("Thai")},
@@ -970,6 +971,8 @@ void mudlet::scanForMudletTranslations(const QString& path)
                 currentTranslation.mNativeName = QStringLiteral("Portugês");
             } else if (!languageCode.compare(QLatin1String("pt_BR"), Qt::CaseInsensitive)) {
                 currentTranslation.mNativeName = QStringLiteral("Português (Brasil)");
+            } else if (!languageCode.compare(QLatin1String("tr_TR"), Qt::CaseInsensitive)) {
+                currentTranslation.mNativeName = QStringLiteral("Türkçe");
             } else {
                 currentTranslation.mNativeName = languageCode;
             }
