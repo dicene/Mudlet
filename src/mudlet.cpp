@@ -450,6 +450,10 @@ mudlet::mudlet()
     mainPane->setFont(mainFont);
     mpTabBar->setFont(mdiFont);
 
+    QShortcut *triggerMakerShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_T), this);
+    triggerMakerShortcut->setContext(Qt::ApplicationShortcut);
+    QAction::connect(triggerMakerShortcut, &QShortcut::activated, this, &mudlet::slot_show_trigger_maker);
+
     mainPane->show();
 
     connect(mpActionConnect.data(), &QAction::triggered, this, &mudlet::slot_show_connection_dialog);
@@ -3562,6 +3566,12 @@ void mudlet::slot_show_trigger_maker()
     pTriggerMaker->updateList();
     pTriggerMaker->raise();
     pTriggerMaker->show();
+    if (pTriggerMaker->lastLines_listWidget->count() > 0)
+    {
+        //pTriggerMaker->lastLines_listWidget->item(pTriggerMaker->lastLines_listWidget->count() - 1)->setSelected(true);
+        pTriggerMaker->lastLines_listWidget->setCurrentRow(pTriggerMaker->lastLines_listWidget->count() - 1);
+        pTriggerMaker->lastLines_listWidget->setFocus();
+    }
 }
 
 void mudlet::slot_notes()

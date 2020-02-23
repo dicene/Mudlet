@@ -120,7 +120,7 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
 //        if (isFolder) {
 //            name = tr("New trigger group");
 //        } else {
-            name = tr("New trigger");
+            name = triggerName_lineEdit->text();
 //        }
         //QStringList lineList;
         //QList<int> linePropertyList;

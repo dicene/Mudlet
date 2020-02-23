@@ -209,6 +209,7 @@ public:
     void delete_timer();
     void delete_trigger();
     void delete_variable();
+    TTrigger getCurrentTrigger();
 
 public slots:
     void slot_toggleHiddenVariables(bool);
@@ -282,6 +283,7 @@ private slots:
 public:
     TConsole* mpErrorConsole;
     bool mNeedUpdateData;
+    void addTrigger(bool);
 
 private:
     void populateTriggers();
@@ -302,7 +304,6 @@ private:
     void addScript(bool);
     void addAlias(bool);
     void addTimer(bool);
-    void addTrigger(bool);
     void addAction(bool);
     void addKey(bool);
     void timerEvent(QTimerEvent *event) override;
