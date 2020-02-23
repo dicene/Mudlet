@@ -47,6 +47,7 @@
 #include "dlgPackageExporter.h"
 #include "dlgProfilePreferences.h"
 #include "dlgTriggerEditor.h"
+#include "dlgTriggerMaker.h"
 #include "VarUnit.h"
 
 #include "pre_guard.h"
@@ -3542,6 +3543,25 @@ void mudlet::slot_show_about_dialog()
 
     mpAboutDlg->raise();
     mpAboutDlg->show();
+}
+
+void mudlet::slot_show_trigger_maker()
+{
+    Host* pHost = getActiveHost();
+    if (!pHost) {
+        return;
+    }
+    dlgTriggerMaker* pTriggerMaker = pHost->mpTriggerMaker;
+    if (!pTriggerMaker) {
+        pHost->mpTriggerMaker = new dlgTriggerMaker(pHost);
+        pTriggerMaker = pHost->mpTriggerMaker;
+
+        pTriggerMaker->setWindowTitle(tr("%1 - Trigger Maker").arg(pHost->getName()));
+        pTriggerMaker->setWindowIcon(QIcon(QStringLiteral(":/icons/mudlet_notepad.png")));
+    }
+    pTriggerMaker->updateList();
+    pTriggerMaker->raise();
+    pTriggerMaker->show();
 }
 
 void mudlet::slot_notes()

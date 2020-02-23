@@ -49,6 +49,7 @@ class QPushButton;
 class QListWidget;
 
 class dlgTriggerEditor;
+class dlgTriggerMaker;
 class TEvent;
 class TArea;
 class LuaInterface;
@@ -386,6 +387,7 @@ public:
     QScopedPointer<TMap> mpMap;
     QScopedPointer<TMedia> mpMedia;
     dlgNotepad* mpNotePad;
+    dlgTriggerMaker* mpTriggerMaker;
 
     // This is set when we want commands we typed to be shown on the main
     // TConsole:

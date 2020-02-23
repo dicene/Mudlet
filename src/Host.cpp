@@ -226,6 +226,7 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mpMap(new TMap(this, hostname))
 , mpMedia(new TMedia(this, hostname))
 , mpNotePad(nullptr)
+, mpTriggerMaker(nullptr)
 , mPrintCommand(true)
 , mIsRemoteEchoingActive(false)
 , mIsCurrentLogFileInHtmlFormat(false)

@@ -465,6 +465,7 @@ public slots:
     void slot_replaySpeedUp();
     void slot_replaySpeedDown();
     void toggleFullScreenView();
+    void slot_show_trigger_maker();
     void slot_show_about_dialog();
     void slot_show_help_dialog_video();
     void slot_show_help_dialog_forum();

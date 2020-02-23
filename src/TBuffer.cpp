@@ -1651,6 +1651,10 @@ COMMIT_LINE:
                 }
             } else {
                 if (mMudLine.size() > 0) {
+                    rawBuffer.append(mMudLine);
+                    if (rawBuffer.size() > 20) {
+                        rawBuffer.pop_front();
+                    }
                     lineBuffer.back().append(mMudLine);
                 } else {
                     if (ch == '\r') {
