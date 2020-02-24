@@ -64,7 +64,7 @@ void dlgTriggerMaker::updateList()
         auto rawBuff = pConsole->buffer.rawBuffer;
         //lastLines_listWidget->addItem(QString("pConsole->getLineCount() = %1").arg(pConsole->getLineCount()));
         //lastLines_listWidget->addItem(QString("rawBuff.size() = %1").arg(rawBuff.size()));
-        for (int i = 0; i < rawBuff.size() && i < 20; i++){
+        for (int i = 0; i < rawBuff.size() && i < 100; i++){
             lastLines_listWidget->addItem(QString("%1").arg(rawBuff[i]));
         }
         //lastLines_listWidget->addItem(QString("rawBuff[0] = \"%1\"").arg(rawBuff[0]));
@@ -85,15 +85,49 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         auto trigEdit = mpHost->mpEditorDialog;
         QString line = lastLines_listWidget->selectedItems()[0]->text();
         //mpHost->*CreateICW()
-        pConsole->echo(QString("Selected line: %1\n").arg(line));
+        //pConsole->echo(QString("Selected line: %1\n").arg(line));
         //trigEdit->addTrigger(false);
         //trigEdit->treeWidget_triggers
 
-        //TTrigger* pT;
+
+        TTrigger* pT;
+        QList<int> propertyList;
+        QStringList regexList;
+        regexList.append(line);
+        for (int i = 0; i < regexList.size(); i++) {
+            propertyList << REGEX_EXACT_MATCH;
+        }
+        //if (parent.isEmpty()) {
+            pT = new TTrigger(triggerName_lineEdit->text(), regexList, propertyList, (regexList.size() > 1), mpHost);
+        /*} else {
+            TTrigger* pP = mpHost->getTriggerUnit()->findTrigger(parent);
+            if (!pP) {
+                return -1; //parent not found
+            }
+            pT = new TTrigger(pP, mpHost);
+            pT->setRegexCodeList(regexList, propertyList);
+        }*/
+        pT->setIsFolder(regexList.empty());
+        pT->setIsActive(true);
+        pT->setTemporary(false);
+        pT->registerTrigger();
+        //pT->setScript("--script generated for trigger " + triggerName_lineEdit->text());
+        pT->setScript("");
+        int id = pT->getID();
+        //pT->setName(triggerName_lineEdit->text());
+        mpHost->mpEditorDialog->mNeedUpdateData = true;
+        //return 1;
+        //return id;
+
+
+
+
+
+        /*//TTrigger* pT;
         QStringList lineList;
         lineList.append(line);
         QList<int> propertyList;
-        propertyList << REGEX_EXACT_MATCH;
+        propertyList << REGEX_EXACT_MATCH;*/
         /*
 //        if (parent.isEmpty()) {
             pT = new TTrigger("a", lineList, propertyList, false, mpHost);
@@ -116,7 +150,9 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         mpHost->mpEditorDialog->mNeedUpdateData = true;*/
 
         //trigEdit->slot_save_edit();//save saveTrigger();
-        QString name;
+
+
+        /*QString name;
 //        if (isFolder) {
 //            name = tr("New trigger group");
 //        } else {
@@ -126,11 +162,11 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         //QList<int> linePropertyList;
         QString script = "";
         QStringList nameL;
-        nameL << name;
+        nameL << name;*/
 
         //QTreeWidgetItem* pParent = treeWidget_triggers->currentItem();
-        QTreeWidgetItem* pNewItem = nullptr;
-        TTrigger* pT = nullptr;
+        //QTreeWidgetItem* pNewItem = nullptr;
+        //TTrigger* pT = nullptr;
 
         //if (pParent) {
         /*if (false) {
@@ -160,11 +196,10 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
                 goto ROOT_TRIGGER;
             }
         } else {*/
-        //insert a new root item
-        /*ROOT_TRIGGER:
-            pT = new TTrigger(name, lineList, propertyList, false, mpHost);
-            //pNewItem = new QTreeWidgetItem(mpTriggerBaseItem, nameL);
-            //treeWidget_triggers->insertTopLevelItem(0, pNewItem);
+        /*//insert a new root item
+        pT = new TTrigger(name, lineList, propertyList, false, mpHost);
+        //pNewItem = new QTreeWidgetItem(mpTriggerBaseItem, nameL);
+        //treeWidget_triggers->insertTopLevelItem(0, pNewItem);
         //}
 
         if (!pT) {
@@ -182,9 +217,10 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         pT->mStayOpen = 0;
         pT->setConditionLineDelta(0);
         pT->registerTrigger();
-        int childID = pT->getID();
+        int childID = pT->getID();*/
 
-        */
+
+
         /*pNewItem->setData(0, Qt::UserRole, childID);
         QIcon icon;
         if (isFolder) {
@@ -216,8 +252,8 @@ void dlgTriggerMaker::on_createTrigger_pushButton_clicked()
         showInfo(msgInfoAddTrigger);
         slot_trigger_selected(treeWidget_triggers->currentItem());
         */
-        TLuaInterpreter* pLuaInterpreter = mpHost->getLuaInterpreter();
-        pLuaInterpreter->startPermSubstringTrigger(name, QString(""), lineList, script);
+        //TLuaInterpreter* pLuaInterpreter = mpHost->getLuaInterpreter();
+        //pLuaInterpreter->startPermSubstringTrigger(name, QString(""), lineList, script);
         if (mpHost->mpEditorDialog)
         {
             mpHost->mpEditorDialog->slot_show_triggers();
