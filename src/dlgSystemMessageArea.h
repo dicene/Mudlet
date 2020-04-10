@@ -24,6 +24,8 @@
 
 #include "pre_guard.h"
 #include "ui_system_message_area.h"
+#include <QMouseEvent>
+#include <QDebug>
 #include "post_guard.h"
 
 
@@ -34,6 +36,17 @@ class dlgSystemMessageArea : public QWidget, public Ui::system_message_area
 public:
     Q_DISABLE_COPY(dlgSystemMessageArea)
     dlgSystemMessageArea(QWidget*);
+
+private:
+    QPoint dragStartPosition;
+
+protected:
+    //void mousePressEvent(QMouseEvent* event) override;
+    //void mouseMoveEvent(QMouseEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
+
+signals:
+    void signalAreaDragged();
 };
 
 #endif // MUDLET_DLGSYSTEMMESSAGEAREA_H

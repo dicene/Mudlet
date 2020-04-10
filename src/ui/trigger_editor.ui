@@ -582,11 +582,11 @@
           <attribute name="headerVisible">
            <bool>true</bool>
           </attribute>
-          <attribute name="headerDefaultSectionSize">
-           <number>80</number>
-          </attribute>
           <attribute name="headerMinimumSectionSize">
            <number>20</number>
+          </attribute>
+          <attribute name="headerDefaultSectionSize">
+           <number>80</number>
           </attribute>
           <column>
            <property name="text">
@@ -649,24 +649,9 @@
        <property name="lineWidth">
         <number>1</number>
        </property>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QSplitter" name="splitter_right">
+         <widget class="QSplitter" name="inner_splitter_right">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>

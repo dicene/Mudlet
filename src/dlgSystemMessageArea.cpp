@@ -40,4 +40,70 @@ dlgSystemMessageArea::dlgSystemMessageArea(QWidget* pF) : QWidget(pF)
     holdPixmap = *(this->notificationAreaIconLabelInformation->pixmap());
     holdPixmap.setDevicePixelRatio(5.3);
     this->notificationAreaIconLabelInformation->setPixmap(holdPixmap);
+    installEventFilter(this);
+    notificationAreaMessageBox->installEventFilter(this);
+    //frame_notificationArea->installEventFilter(this);
+
 }
+
+bool dlgSystemMessageArea::eventFilter(QObject* obj, QEvent* event)
+{
+    if (event->type() != QEvent::Paint) {
+        //qDebug() << "Obj" << obj << " Event" << event;
+        if (event->type() == QEvent::MouseButtonPress) {
+            auto mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                dragStartPosition = mouseEvent->pos();
+                //qDebug() << "Drag started on " << obj;
+                /*QDrag *drag = new QDrag(this);
+                QMimeData *mimeData = new QMimeData;
+
+                mimeData->setData(mimeType, data);
+                drag->setMimeData(mimeData);*/
+                //return true;
+            }
+        } else if (event->type() == QEvent::MouseMove) {
+            auto mouseEvent = static_cast<QMouseEvent*>(event);
+            if ((mouseEvent->buttons() & Qt::LeftButton)) {
+                //qDebug() << "Drag moved!";
+                if ((mouseEvent->pos() - dragStartPosition).manhattanLength() > QApplication::startDragDistance()) {
+                    //qDebug() << "Drag moved far enough!";
+                    emit signalAreaDragged();
+                    return true;
+                }
+            }
+        }
+    }
+    //qDebug() << "Obj" << obj << " Event" << event;
+    return QObject::eventFilter(obj, event);
+}
+
+/*void dlgSystemMessageArea::mousePressEvent(QMouseEvent* event)
+{
+    //    if (event->button() == Qt::LeftButton) {
+    //        dragStartPosition = event->pos();
+    //        qDebug() << "Drag started!";
+    //    }
+}
+
+void dlgSystemMessageArea::mouseMoveEvent(QMouseEvent* event)
+{
+    //event->ignore();
+    //    qDebug() << "mouseMoveEvent!";
+    //    if (!(event->buttons() & Qt::LeftButton))
+    //        return;
+    //    qDebug() << "Drag moved!";
+    //    if ((event->pos() - dragStartPosition).manhattanLength() < QApplication::startDragDistance())
+    //        return;
+    //    qDebug() << "Drag moved far enough!";
+    //    emit signalAreaDragged();
+    //QDrag *drag = new QDrag(this);
+    //QMimeData *mimeData = new QMimeData;
+
+    //mimeData->setData(mimeType, data);
+    //drag->setMimeData(mimeData);
+
+    //Qt::DropAction dropAction = drag->exec(Qt::CopyAction | Qt::MoveAction);
+    //...
+}
+*/

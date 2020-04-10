@@ -273,6 +273,7 @@ public slots:
     void slot_updateStatusBar(const QString& statusText); // For the source code editor
     void slot_profileSaveStarted();
     void slot_profileSaveFinished();
+    void slot_systemMessageAreaDragged();
 
 private slots:
     void slot_changeEditorTextOptions(QTextOption::Flags);

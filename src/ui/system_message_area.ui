@@ -22,6 +22,9 @@
     <height>110</height>
    </size>
   </property>
+  <property name="mouseTracking">
+   <bool>true</bool>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout_main" stretch="0,10">
    <item>
     <widget class="QFrame" name="frame_notificationArea">
