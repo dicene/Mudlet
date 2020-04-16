@@ -182,7 +182,7 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
 
     mpNonCodeWidgets = new QWidget(this);
     auto *layoutColumn = new QVBoxLayout(mpNonCodeWidgets);
-    inner_splitter_right->addWidget(mpNonCodeWidgets);
+    splitter_right->addWidget(mpNonCodeWidgets);
 
     // system message area
     mpSystemMessageArea = new dlgSystemMessageArea(this);
@@ -190,7 +190,8 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     mpSystemMessageArea->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
     // set the stretch factor of the message area to 0 and everything else to 1,
     // so our errors box doesn't stretch to produce a grey area
-    layoutColumn->addWidget(mpSystemMessageArea, 0);
+    frame_system_message_area;
+    //layoutColumn->addWidget(mpSystemMessageArea, 0);
     //frame_right->addWidget(mpSystemMessageArea, 0);
     connect(mpSystemMessageArea->messageAreaCloseButton, &QAbstractButton::clicked, mpSystemMessageArea, &QWidget::hide);
     connect(mpSystemMessageArea, &dlgSystemMessageArea::signalAreaDragged, this, &dlgTriggerEditor::slot_systemMessageAreaDragged);
@@ -231,7 +232,7 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
 
     // source editor area
     mpSourceEditorArea = new dlgSourceEditorArea(this);
-    inner_splitter_right->addWidget(mpSourceEditorArea);
+    splitter_right->addWidget(mpSourceEditorArea);
 
     // And the new edbee widget
     mpSourceEditorEdbee = mpSourceEditorArea->edbeeEditorWidget;
@@ -290,14 +291,14 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     mpErrorConsole->print(tr("*** starting new session ***\n"));
     mpErrorConsole->setMinimumHeight(100);
     mpErrorConsole->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
-    inner_splitter_right->addWidget(mpErrorConsole);
+    splitter_right->addWidget(mpErrorConsole);
 
-    inner_splitter_right->setStretchFactor(0, 1); // mpNonCodeWidgets
-    inner_splitter_right->setCollapsible(0, false);
-    inner_splitter_right->setStretchFactor(1, 1); // mpSourceEditorArea
-    inner_splitter_right->setCollapsible(1, false);
-    inner_splitter_right->setStretchFactor(2, 1); // mpErrorConsole
-    inner_splitter_right->setCollapsible(2, false);
+    splitter_right->setStretchFactor(0, 1); // mpNonCodeWidgets
+    splitter_right->setCollapsible(0, false);
+    splitter_right->setStretchFactor(1, 1); // mpSourceEditorArea
+    splitter_right->setCollapsible(1, false);
+    splitter_right->setStretchFactor(2, 1); // mpErrorConsole
+    splitter_right->setCollapsible(2, false);
 
     mpErrorConsole->hide();
 
@@ -310,7 +311,7 @@ dlgTriggerEditor::dlgTriggerEditor(Host* pH)
     connect(mpTriggersMainArea->toolButton_toggleExtraControls, &QAbstractButton::clicked, this, &dlgTriggerEditor::slot_showAllTriggerControls);
     slot_showAllTriggerControls(true);
 
-    connect(inner_splitter_right, &QSplitter::splitterMoved, this, &dlgTriggerEditor::slot_rightSplitterMoved);
+    connect(splitter_right, &QSplitter::splitterMoved, this, &dlgTriggerEditor::slot_rightSplitterMoved);
     // additional settings
     treeWidget_triggers->setColumnCount(1);
     treeWidget_triggers->setIsTriggerTree();
@@ -6744,11 +6745,11 @@ void dlgTriggerEditor::slot_show_timers()
         slot_timer_selected(treeWidget_timers->currentItem());
     }
     if (!mTimerEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mTimerEditorSplitterState);
+        splitter_right->restoreState(mTimerEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mTimerEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mTimerEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6789,11 +6790,11 @@ void dlgTriggerEditor::slot_show_triggers()
         slot_trigger_selected(treeWidget_triggers->currentItem());
     }
     if (!mTriggerEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mTriggerEditorSplitterState);
+        splitter_right->restoreState(mTriggerEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mTriggerEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mTriggerEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6813,11 +6814,11 @@ void dlgTriggerEditor::slot_show_scripts()
         slot_scripts_selected(treeWidget_scripts->currentItem());
     }
     if (!mScriptEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mScriptEditorSplitterState);
+        splitter_right->restoreState(mScriptEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mScriptEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mScriptEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6837,11 +6838,11 @@ void dlgTriggerEditor::slot_show_keys()
         slot_key_selected(treeWidget_keys->currentItem());
     }
     if (!mKeyEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mKeyEditorSplitterState);
+        splitter_right->restoreState(mKeyEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mKeyEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mKeyEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6865,11 +6866,11 @@ void dlgTriggerEditor::slot_show_vars()
         slot_var_selected(treeWidget_variables->currentItem());
     }
     if (!mVarEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mVarEditorSplitterState);
+        splitter_right->restoreState(mVarEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mVarEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mVarEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6911,11 +6912,11 @@ void dlgTriggerEditor::slot_show_aliases()
         slot_alias_selected(treeWidget_aliases->currentItem());
     }
     if (!mAliasEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mAliasEditorSplitterState);
+        splitter_right->restoreState(mAliasEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mAliasEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mAliasEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -6962,11 +6963,11 @@ void dlgTriggerEditor::slot_show_actions()
         slot_action_selected(treeWidget_actions->currentItem());
     }
     if (!mActionEditorSplitterState.isEmpty()) {
-        inner_splitter_right->restoreState(mActionEditorSplitterState);
+        splitter_right->restoreState(mActionEditorSplitterState);
     } else {
         const QList<int> sizes = {30, 900, 30};
-        inner_splitter_right->setSizes(sizes);
-        mActionEditorSplitterState = inner_splitter_right->saveState();
+        splitter_right->setSizes(sizes);
+        mActionEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -8861,7 +8862,7 @@ void dlgTriggerEditor::slot_rightSplitterMoved(const int, const int)
     const int hysteresis = 10;
     static int bottomWidgetHeight = 0;
     if (mpTriggersMainArea->isVisible()) {
-        mTriggerEditorSplitterState = inner_splitter_right->saveState();
+        mTriggerEditorSplitterState = splitter_right->saveState();
         // The triggersMainArea is visible
         if (mpTriggersMainArea->toolButton_toggleExtraControls->isChecked()) {
             // The extra controls are visible in the triggersMainArea
@@ -8882,17 +8883,17 @@ void dlgTriggerEditor::slot_rightSplitterMoved(const int, const int)
             }
         }
     } else if (mpActionsMainArea->isVisible()) {
-        mActionEditorSplitterState = inner_splitter_right->saveState();
+        mActionEditorSplitterState = splitter_right->saveState();
     } else if (mpAliasMainArea->isVisible()) {
-        mAliasEditorSplitterState = inner_splitter_right->saveState();
+        mAliasEditorSplitterState = splitter_right->saveState();
     } else if (mpKeysMainArea->isVisible()) {
-        mKeyEditorSplitterState = inner_splitter_right->saveState();
+        mKeyEditorSplitterState = splitter_right->saveState();
     } else if (mpScriptsMainArea->isVisible()) {
-        mScriptEditorSplitterState = inner_splitter_right->saveState();
+        mScriptEditorSplitterState = splitter_right->saveState();
     } else if (mpTimersMainArea->isVisible()) {
-        mTimerEditorSplitterState = inner_splitter_right->saveState();
+        mTimerEditorSplitterState = splitter_right->saveState();
     } else if (mpVarsMainArea->isVisible()) {
-        mVarEditorSplitterState = inner_splitter_right->saveState();
+        mVarEditorSplitterState = splitter_right->saveState();
     }
 }
 
@@ -8913,6 +8914,6 @@ void dlgTriggerEditor::slot_systemMessageAreaDragged()
     qDebug() << "slot_systemMessageAreaDragged!";// << mpSystemMessageArea->parentWidget();
     //QSplitter right_splitter = static_cast<QSplitter>(mpSystemMessageArea->parentWidget());
     //right_splitter.insertWidget(2, mpSystemMessageArea);
-    inner_splitter_right->insertWidget(2, mpSystemMessageArea);
+    splitter_right->insertWidget(2, mpSystemMessageArea);
     //mpSystemMessageArea->hide();
 }
